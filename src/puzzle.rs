@@ -10,7 +10,8 @@ use std::collections::HashMap;
 const CLICK_TARGET_SIZE_PIXELS: f32 = 50.0;
 
 pub struct Puzzle {
-    vertices: Vec<Vertex>,
+    next_vertex_id: usize,
+    vertices: HashMap<usize, Vertex>,
     edges: HashMap<(usize, usize), Edge>,
     triangles: Vec<Triangle>,
     active_line: Option<(usize, Vec2)>,
@@ -25,7 +26,8 @@ fn random_color() -> Srgba {
 impl Puzzle {
     pub fn empty() -> Self {
         Self {
-            vertices: Vec::new(),
+            next_vertex_id: 0,
+            vertices: HashMap::new(),
             edges: HashMap::new(),
             triangles: Vec::new(),
             active_line: None,
@@ -38,17 +40,21 @@ impl Puzzle {
         s
     }
 
-    fn update(&mut self) {
-        let dpoints: Vec<_> = self
-            .vertices
+    pub fn triangulate(&mut self) {
+        let mut vvec: Vec<(&usize, &Vertex)> = self.vertices.iter().collect();
+        vvec.sort_by_key(|e| e.0);
+
+        let dpoints: Vec<_> = vvec
             .iter()
-            .map(|v| Point {
+            .map(|(_, v)| Point {
                 x: v.pos.x as f64,
                 y: v.pos.y as f64,
             })
             .collect();
 
         let result = triangulate(&dpoints);
+
+        self.edges.clear();
 
         self.triangles = result
             .triangles
@@ -59,62 +65,77 @@ impl Puzzle {
                     return None;
                 }
 
-                Some(Triangle::new(w[0], w[1], w[2], random_color()))
+                let a = *vvec[w[0]].0;
+                let b = *vvec[w[1]].0;
+                let c = *vvec[w[2]].0;
+
+                Some(Triangle::new(a, b, c, random_color()))
             })
             .collect();
 
-        let edges: HashMap<_, _> = (0..result.triangles.len())
-            .filter_map(|i| {
-                let (i, j) = match i % 3 {
-                    0 | 1 => (i, i + 1),
-                    _ => (i, i - 2),
-                };
-
-                let e1 = *result.triangles.get(i)?;
-                let e2 = *result.triangles.get(j)?;
-
-                let emin = e1.min(e2);
-                let emax = e1.max(e2);
-
-                if emin == emax {
-                    return None;
-                }
-
-                Some(((emin, emax), Edge::new(emin, emax, false)))
-            })
-            .collect();
-
-        self.edges = edges;
+        for t in self.triangles.clone() {
+            self.add_edge(t.a, t.b, true);
+            self.add_edge(t.a, t.c, true);
+            self.add_edge(t.b, t.c, true);
+        }
     }
 
-    pub fn add_point(&mut self, p: Vec2) {
-        if self.vertices.iter().any(|q| q.pos.distance(p) < 60.0) {
-            return;
-        }
+    fn next_vertex_id(&mut self) -> usize {
+        let r = self.next_vertex_id;
+        self.next_vertex_id += 1;
+        r
+    }
 
-        self.vertices.push(Vertex::new(p));
+    pub fn add_point(&mut self, p: Vec2, with_active_edge: bool) {
+        if let Some((other, pos)) = with_active_edge.then(|| self.active_line).flatten() {
+            let hovered = self.get_hovered_vertex();
+
+            for (_, v) in &mut self.vertices {
+                v.is_clicked = false;
+                v.is_hovered = false;
+            }
+
+            let new_id = if let Some(id) = hovered {
+                if let Some(v) = self.vertices.get_mut(&id) {
+                    v.is_clicked = true;
+                }
+                id
+            } else {
+                let mut new_vertex = Vertex::new(p);
+                new_vertex.is_clicked = true;
+                let id = self.next_vertex_id();
+                self.vertices.insert(id, new_vertex);
+                id
+            };
+            self.add_edge(new_id, other, false);
+            self.active_line = Some((new_id, pos));
+        } else {
+            let id = self.next_vertex_id();
+            self.vertices.insert(id, Vertex::new(p));
+        }
     }
 
     pub fn randomize(&mut self) {
         self.vertices.clear();
-        for _ in 0..10 {
+        self.edges.clear();
+        self.triangles.clear();
+        for _ in 0..200 {
             let v = Vec2::new(random(-1000.0, 1000.0), random(-600.0, 600.0));
-            self.add_point(v);
+            self.add_point(v, false);
         }
-        self.update();
     }
 
     pub fn vertices(&self) -> impl Iterator<Item = &Vertex> + use<'_> {
-        self.vertices.iter()
+        self.vertices.iter().map(|(_, v)| v)
     }
 
     pub fn vertex_n(&self, n: usize) -> Option<&Vertex> {
-        self.vertices.get(n)
+        self.vertices.get(&n)
     }
 
     pub fn vertex_at(&self, p: Vec2, max_radius: f32) -> Option<usize> {
         let mut res = None;
-        for (i, v) in self.vertices.iter().enumerate() {
+        for (i, v) in &self.vertices {
             let d = v.pos.distance(p);
             if d > max_radius {
                 continue;
@@ -128,7 +149,7 @@ impl Puzzle {
             }
         }
 
-        res.map(|(i, _)| i)
+        res.map(|(i, _)| *i)
     }
 
     pub fn edges(&self) -> impl Iterator<Item = (&Vertex, &Vertex, &Edge)> + use<'_> {
@@ -159,19 +180,36 @@ impl Puzzle {
         })
     }
 
+    pub fn remove_vertex(&mut self, id: usize) {
+        self.vertices.remove_entry(&id);
+        self.edges.retain(|_, e| !e.has_vertex(id));
+        // TODO faces
+    }
+
     pub fn on_right_click_down(&mut self, pos: Vec2) {
-        if let Some(idx) = self.vertex_at(pos, CLICK_TARGET_SIZE_PIXELS) {
-            for (_, e) in &mut self.edges {
-                if e.a == idx || e.b == idx {
-                    e.is_visible = false;
-                }
+        if let Some(id) = self.vertex_at(pos, CLICK_TARGET_SIZE_PIXELS) {
+            let n_active_edges = self
+                .edges
+                .iter()
+                .filter(|(_, e)| e.has_vertex(id) && e.is_visible)
+                .count();
+            let n_edges = self.edges.iter().filter(|(_, e)| e.has_vertex(id)).count();
+            if n_active_edges > 0 {
+                self.edges
+                    .iter_mut()
+                    .filter(|(_, e)| e.has_vertex(id))
+                    .for_each(|(_, e)| e.is_visible = false);
+            } else if n_edges > 0 {
+                self.edges.retain(|_, e| !e.has_vertex(id));
+            } else {
+                self.remove_vertex(id);
             }
         }
     }
 
     pub fn on_left_click_down(&mut self, pos: Vec2) {
-        if let Some(idx) = self.vertex_at(pos, CLICK_TARGET_SIZE_PIXELS) {
-            if let Some(x) = self.vertices.get_mut(idx) {
+        if let Some(id) = self.vertex_at(pos, CLICK_TARGET_SIZE_PIXELS) {
+            if let Some(x) = self.vertices.get_mut(&id) {
                 x.is_clicked = true;
             }
         }
@@ -180,21 +218,30 @@ impl Puzzle {
     fn get_hovered_vertex(&mut self) -> Option<usize> {
         self.vertices
             .iter_mut()
-            .enumerate()
-            .find_map(|(idx, v)| v.is_hovered.then(|| idx))
+            .find_map(|(id, v)| v.is_hovered.then(|| *id))
     }
 
     pub fn get_clicked_vertex(&mut self) -> Option<usize> {
         self.vertices
             .iter_mut()
-            .enumerate()
-            .find_map(|(idx, v)| v.is_clicked.then(|| idx))
+            .find_map(|(id, v)| v.is_clicked.then(|| *id))
     }
 
     fn get_edge_mut(&mut self, a: usize, b: usize) -> Option<&mut Edge> {
         let emin = a.min(b);
         let emax = a.max(b);
         self.edges.get_mut(&(emin, emax))
+    }
+
+    fn add_edge(&mut self, a: usize, b: usize, state: bool) {
+        if a == b {
+            return;
+        }
+
+        let min = a.min(b);
+        let max = a.max(b);
+        let edge = Edge::new(min, max, state);
+        self.edges.insert((min, max), edge);
     }
 
     pub fn on_left_click_up(&mut self) {
@@ -204,16 +251,18 @@ impl Puzzle {
         if let Some((c, h)) = clicked.zip(hovered) {
             if let Some(e) = self.get_edge_mut(c, h) {
                 e.is_visible = !e.is_visible;
+            } else {
+                self.add_edge(c, h, false)
             }
         }
 
-        for v in &mut self.vertices {
+        for (_, v) in &mut self.vertices {
             v.is_clicked = false;
         }
     }
 
     pub fn set_cursor_position(&mut self, pos: Option<Vec2>) {
-        for v in &mut self.vertices {
+        for (_, v) in &mut self.vertices {
             v.is_hovered = false;
             let base_radius = 8.0;
             let extra = if let Some(pos) = pos {
@@ -223,11 +272,16 @@ impl Puzzle {
                 0.0
             };
             v.marker_radius.target = base_radius + extra;
+            if v.is_follow() {
+                if let Some(p) = pos {
+                    v.pos += (p - v.pos) * 0.25;
+                }
+            }
         }
 
         if let Some(pos) = pos {
-            if let Some(idx) = self.vertex_at(pos, CLICK_TARGET_SIZE_PIXELS) {
-                if let Some(v) = self.vertices.get_mut(idx) {
+            if let Some(id) = self.vertex_at(pos, CLICK_TARGET_SIZE_PIXELS) {
+                if let Some(v) = self.vertices.get_mut(&id) {
                     v.is_hovered = true;
                 }
             }
@@ -247,28 +301,34 @@ impl Puzzle {
     pub fn step(&mut self) {
         let is_complete = self.is_complete();
 
-        for (idx, v) in self.vertices.iter_mut().enumerate() {
+        for (id, v) in &mut self.vertices {
             v.visible_count = self
                 .edges
                 .iter()
-                .filter(|(_, e)| (e.a == idx || e.b == idx) && e.is_visible)
+                .filter(|(_, e)| (e.a == *id || e.b == *id) && e.is_visible)
                 .count();
 
             v.invisible_count = self
                 .edges
                 .iter()
-                .filter(|(_, e)| (e.a == idx || e.b == idx) && !e.is_visible)
+                .filter(|(_, e)| (e.a == *id || e.b == *id) && !e.is_visible)
                 .count();
 
             if v.is_clicked && v.is_hovered {
                 v.marker_radius.target = 25.0;
             } else if is_complete {
                 v.marker_radius.target = 0.0;
-            } else if v.invisible_count == 0 {
+            } else if v.invisible_count == 0 && v.visible_count > 0 {
                 v.marker_radius.target = 3.0;
             }
 
             v.marker_radius.step();
+
+            v.follow_count = if v.is_clicked && v.is_hovered {
+                (v.follow_count + 1).min(MAX_FOLLOW_COUNT)
+            } else {
+                0
+            };
         }
 
         for (_, e) in &mut self.edges {
@@ -295,7 +355,7 @@ impl Puzzle {
     }
 
     pub fn is_complete(&self) -> bool {
-        self.triangles.iter().all(|t| t.is_visible)
+        !self.triangles.is_empty() && self.triangles.iter().all(|t| t.is_visible)
     }
 }
 

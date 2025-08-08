@@ -71,12 +71,20 @@ fn on_input_tick(
     // keyboard presses
     if keys.just_pressed(KeyCode::KeyQ) {
         if let Some(p) = state.mouse_pos {
-            state.puzzle.add_point(p);
+            state.puzzle.add_point(p, true);
         }
+    }
+
+    if keys.just_pressed(KeyCode::KeyT) {
+        state.puzzle.triangulate();
     }
 
     if keys.just_pressed(KeyCode::KeyR) {
         state.puzzle.randomize();
+    }
+
+    if keys.just_pressed(KeyCode::KeyE) {
+        state.puzzle = Puzzle::empty();
     }
 
     // mousebutton presses
@@ -146,6 +154,7 @@ fn draw_line(painter: &mut ShapePainter, a: Vec2, b: Vec2, z: f32, thickness: f3
 }
 
 const TRIANGLE_Z: f32 = 0.0;
+const FOLLOW_ICON_Z: f32 = 0.02;
 const HIDDEN_EDGE_Z: f32 = 0.1;
 const ACTIVE_EDGE_Z: f32 = 0.11;
 const VERTEX_Z: f32 = 0.2;
@@ -199,6 +208,16 @@ fn draw_game(mut painter: ShapePainter, state: &GameState) {
             let a = std::f32::consts::PI * (0.5 + 2.0 * i as f32 / total_edges as f32);
             let p = v.pos + Vec2::from_angle(a) * r;
             draw_circle(&mut painter, p, VERTEX_Z_2, 4.0, BLACK);
+        }
+
+        if v.is_clicked {
+            draw_circle(&mut painter, v.pos, VERTEX_Z_2, 8.0, RED);
+        }
+        if v.is_hovered {
+            draw_circle(&mut painter, v.pos, VERTEX_Z_2, 8.0, GREEN);
+        }
+        if v.is_follow() {
+            draw_circle(&mut painter, v.pos, VERTEX_Z_2, 8.0, BLUE);
         }
     }
 

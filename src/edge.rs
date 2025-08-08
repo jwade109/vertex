@@ -19,4 +19,8 @@ impl Edge {
             is_visible: active,
         }
     }
+
+    pub fn has_vertex(&self, id: usize) -> bool {
+        self.a == id || self.b == id
+    }
 }

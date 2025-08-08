@@ -1,3 +1,4 @@
+#[derive(Clone)]
 pub struct Lpf {
     pub target: f32,
     pub actual: f32,

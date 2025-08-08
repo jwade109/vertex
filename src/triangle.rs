@@ -1,6 +1,7 @@
 use crate::lpf::*;
 use bevy::color::Srgba;
 
+#[derive(Clone)]
 pub struct Triangle {
     pub color: Srgba,
     pub a: usize,
