@@ -7,11 +7,12 @@ pub struct Edge {
 }
 
 impl Edge {
-    pub fn new(a: usize, b: usize) -> Self {
+    pub fn new(a: usize, b: usize, active: bool) -> Self {
+        let portion = active as u8 as f32;
         Self {
             a,
             b,
-            portion: Lpf::new(1.0, 0.0, 0.1),
+            portion: Lpf::new(portion, portion, 0.1),
         }
     }
 }

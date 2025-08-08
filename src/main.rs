@@ -44,10 +44,10 @@ fn on_input_tick(
         x.with_y(-x.y)
     });
 
-    if keys.pressed(KeyCode::KeyQ) {
-        state
-            .puzzle
-            .add_point(Vec2::new(random(-1000.0, 1000.0), random(-600.0, 600.0)))
+    if keys.just_pressed(KeyCode::KeyQ) {
+        if let Some(p) = state.mouse_pos {
+            state.puzzle.add_point(p);
+        }
     }
 
     if keys.just_pressed(KeyCode::KeyR) {

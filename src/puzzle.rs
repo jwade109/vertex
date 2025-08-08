@@ -70,7 +70,12 @@ impl Puzzle {
                 if e1 >= e2 {
                     return None;
                 }
-                Some(Edge::new(e1, e2))
+
+                let v1 = self.vertices.get(e1)?;
+                let v2 = self.vertices.get(e2)?;
+                let hidden = v1.hidden || v2.hidden;
+
+                Some(Edge::new(e1, e2, !hidden))
             })
             .collect();
 
@@ -78,7 +83,7 @@ impl Puzzle {
     }
 
     pub fn add_point(&mut self, p: Vec2) {
-        if self.vertices.iter().any(|q| q.pos.distance(p) < 150.0) {
+        if self.vertices.iter().any(|q| q.pos.distance(p) < 60.0) {
             return;
         }
 
