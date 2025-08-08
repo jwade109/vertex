@@ -122,12 +122,16 @@ fn draw_game(mut painter: ShapePainter, state: &GameState) {
         };
         let c = a.pos.lerp(b.pos, 0.5);
         for (v, c) in [(a.pos, c), (b.pos, c)] {
-            let r = v.lerp(c, e.animation.actual);
-            draw_line(&mut painter, v, r, z, 3.0, BLACK);
+            let r = v.lerp(c, e.length_animation.actual);
+            draw_line(&mut painter, v, r, z, e.thickness_animation.actual, BLACK);
         }
     }
 
     for v in state.puzzle.vertices() {
+        if v.marker_radius.actual < 1.0 {
+            continue;
+        }
+
         draw_circle(&mut painter, v.pos, VERTEX_Z, v.marker_radius.actual, BLACK);
         draw_circle(
             &mut painter,
@@ -137,38 +141,12 @@ fn draw_game(mut painter: ShapePainter, state: &GameState) {
             WHITE,
         );
 
-        let total_edges = v.visible_count + v.invisible_count;
-
-        if v.invisible_count > 0 {
-            for i in 0..total_edges {
-                let r = 20.0;
-                let a = std::f32::consts::PI * (0.5 + 2.0 * i as f32 / total_edges as f32);
-                let p = v.pos + Vec2::from_angle(a) * r;
-                let (color, radius) = if i < v.visible_count {
-                    (BLACK, 4.0)
-                } else {
-                    (GRAY, 2.0)
-                };
-                draw_circle(&mut painter, p, VERTEX_Z_2, radius, color);
-            }
-        }
-
-        if v.is_clicked {
-            draw_circle(
-                &mut painter,
-                v.pos,
-                VERTEX_Z_2,
-                v.marker_radius.actual - 8.0,
-                GREEN,
-            );
-        } else if v.is_hovered {
-            draw_circle(
-                &mut painter,
-                v.pos,
-                VERTEX_Z_2,
-                v.marker_radius.actual - 8.0,
-                RED,
-            );
+        let total_edges = v.invisible_count + v.visible_count;
+        for i in 0..v.invisible_count {
+            let r = 20.0;
+            let a = std::f32::consts::PI * (0.5 + 2.0 * i as f32 / total_edges as f32);
+            let p = v.pos + Vec2::from_angle(a) * r;
+            draw_circle(&mut painter, p, VERTEX_Z_2, 4.0, BLACK);
         }
     }
 

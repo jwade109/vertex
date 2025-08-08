@@ -4,7 +4,8 @@ pub struct Edge {
     pub a: usize,
     pub b: usize,
     pub is_visible: bool,
-    pub animation: Lpf,
+    pub length_animation: Lpf,
+    pub thickness_animation: Lpf,
 }
 
 impl Edge {
@@ -14,7 +15,8 @@ impl Edge {
             a,
             b,
             is_visible: active,
-            animation: Lpf::new(animation, animation, 0.1),
+            length_animation: Lpf::new(animation, animation, 0.1),
+            thickness_animation: Lpf::new(3.0, 1.0, 0.1),
         }
     }
 }

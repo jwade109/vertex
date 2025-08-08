@@ -98,7 +98,7 @@ impl Puzzle {
 
     pub fn randomize(&mut self) {
         self.vertices.clear();
-        for _ in 0..40 {
+        for _ in 0..10 {
             let v = Vec2::new(random(-1000.0, 1000.0), random(-600.0, 600.0));
             self.add_point(v);
         }
@@ -246,6 +246,8 @@ impl Puzzle {
     }
 
     pub fn step(&mut self) {
+        let is_complete = self.is_complete();
+
         for (idx, v) in self.vertices.iter_mut().enumerate() {
             v.visible_count = self
                 .edges
@@ -261,15 +263,26 @@ impl Puzzle {
 
             if v.is_clicked && v.is_hovered {
                 v.marker_radius.target = 25.0;
+            } else if is_complete {
+                v.marker_radius.target = 0.0;
             } else if v.invisible_count == 0 {
                 v.marker_radius.target = 3.0;
             }
+
             v.marker_radius.step();
         }
 
         for (_, e) in &mut self.edges {
-            e.animation.target = e.is_visible as u8 as f32;
-            e.animation.step();
+            e.length_animation.target = e.is_visible as u8 as f32;
+            e.length_animation.step();
+            e.thickness_animation.target = if is_complete {
+                0.0
+            } else if e.is_visible {
+                3.0
+            } else {
+                1.0
+            };
+            e.thickness_animation.step();
         }
 
         for t in &mut self.triangles {
@@ -280,6 +293,10 @@ impl Puzzle {
             t.animation.target = t.is_visible as u8 as f32;
             t.animation.step();
         }
+    }
+
+    pub fn is_complete(&self) -> bool {
+        self.triangles.iter().all(|t| t.is_visible)
     }
 }
 
