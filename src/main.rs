@@ -3,10 +3,12 @@ mod gamestate;
 mod lpf;
 mod math;
 mod puzzle;
+mod triangle;
 mod vertex;
 
 use crate::gamestate::*;
 use crate::math::*;
+use crate::puzzle::*;
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
@@ -56,7 +58,17 @@ fn on_input_tick(
 
     if mouse.just_pressed(MouseButton::Left) {
         if let Some(p) = state.mouse_pos {
-            state.puzzle.try_toggle_vertex_at(p);
+            state.puzzle.on_left_click_down(p);
+        }
+    }
+
+    if mouse.just_released(MouseButton::Left) {
+        state.puzzle.on_left_click_up();
+    }
+
+    if mouse.just_pressed(MouseButton::Right) {
+        if let Some(p) = state.mouse_pos {
+            state.puzzle.on_right_click_down(p);
         }
     }
 
@@ -95,6 +107,7 @@ const HIDDEN_EDGE_Z: f32 = 0.1;
 const ACTIVE_EDGE_Z: f32 = 0.11;
 const VERTEX_Z: f32 = 0.2;
 const VERTEX_Z_2: f32 = 0.21;
+const ACTIVE_LINE_Z: f32 = 0.22;
 
 fn draw_game(mut painter: ShapePainter, state: &GameState) {
     for (a, b, c, color) in state.puzzle.triangles() {
@@ -102,26 +115,69 @@ fn draw_game(mut painter: ShapePainter, state: &GameState) {
     }
 
     for (a, b, e) in state.puzzle.edges() {
-        let hidden = a.hidden || b.hidden;
-        let z = if hidden { HIDDEN_EDGE_Z } else { ACTIVE_EDGE_Z };
+        let z = if e.is_visible {
+            ACTIVE_EDGE_Z
+        } else {
+            HIDDEN_EDGE_Z
+        };
         let c = a.pos.lerp(b.pos, 0.5);
         for (v, c) in [(a.pos, c), (b.pos, c)] {
-            let r = v.lerp(c, e.portion.actual);
+            let r = v.lerp(c, e.animation.actual);
             draw_line(&mut painter, v, r, z, 3.0, BLACK);
         }
     }
 
     for v in state.puzzle.vertices() {
-        let color = if v.hidden { GRAY } else { BLACK };
-        draw_circle(&mut painter, v.pos, VERTEX_Z, v.marker_radius.actual, color);
-        if !v.hidden {
+        draw_circle(&mut painter, v.pos, VERTEX_Z, v.marker_radius.actual, BLACK);
+        draw_circle(
+            &mut painter,
+            v.pos,
+            VERTEX_Z_2,
+            v.marker_radius.actual - 4.0,
+            WHITE,
+        );
+
+        let total_edges = v.visible_count + v.invisible_count;
+
+        if v.invisible_count > 0 {
+            for i in 0..total_edges {
+                let r = 20.0;
+                let a = std::f32::consts::PI * (0.5 + 2.0 * i as f32 / total_edges as f32);
+                let p = v.pos + Vec2::from_angle(a) * r;
+                let (color, radius) = if i < v.visible_count {
+                    (BLACK, 4.0)
+                } else {
+                    (GRAY, 2.0)
+                };
+                draw_circle(&mut painter, p, VERTEX_Z_2, radius, color);
+            }
+        }
+
+        if v.is_clicked {
             draw_circle(
                 &mut painter,
                 v.pos,
                 VERTEX_Z_2,
-                v.marker_radius.actual - 4.0,
-                WHITE,
+                v.marker_radius.actual - 8.0,
+                GREEN,
+            );
+        } else if v.is_hovered {
+            draw_circle(
+                &mut painter,
+                v.pos,
+                VERTEX_Z_2,
+                v.marker_radius.actual - 8.0,
+                RED,
             );
         }
     }
+
+    draw_cursor_line(painter, &state.puzzle);
+}
+
+fn draw_cursor_line(mut painter: ShapePainter, puzzle: &Puzzle) -> Option<()> {
+    let line = puzzle.active_line()?;
+    let start = puzzle.vertex_n(line.0)?;
+    draw_line(&mut painter, start.pos, line.1, ACTIVE_LINE_Z, 3.0, ORANGE);
+    Some(())
 }
