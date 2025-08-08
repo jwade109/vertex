@@ -93,7 +93,6 @@ impl Puzzle {
         }
 
         self.vertices.push(Vertex::new(p));
-        self.update();
     }
 
     pub fn randomize(&mut self) {

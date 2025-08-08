@@ -10,6 +10,7 @@ use crate::gamestate::*;
 use crate::math::*;
 use crate::puzzle::*;
 use bevy::color::palettes::css::*;
+use bevy::input::gamepad::{Gamepad, GamepadEvent};
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy_vector_shapes::prelude::*;
@@ -38,14 +39,36 @@ fn on_input_tick(
     keys: Res<ButtonInput<KeyCode>>,
     mouse: Res<ButtonInput<MouseButton>>,
     window: Single<&Window, With<PrimaryWindow>>,
+    gamepad: Query<&Gamepad>,
+    mut evr_gamepad: EventReader<GamepadEvent>,
     mut state: ResMut<GameState>,
 ) {
-    let dims = window.size();
-    state.mouse_pos = window.cursor_position().map(|p| {
+    if let Some(p) = window.cursor_position() {
+        let dims = window.size();
         let x = p - dims / 2.0;
-        x.with_y(-x.y)
-    });
+        state.mouse_pos = Some(x.with_y(-x.y))
+    } else if let Some(g) = gamepad.get_single().ok() {
+        let delta = g.left_stick() * 6.0;
+        state.mouse_pos = Some(state.mouse_pos.unwrap_or(Vec2::ZERO) + delta);
 
+        if g.just_pressed(GamepadButton::South) {
+            if let Some(p) = state.mouse_pos {
+                state.puzzle.on_left_click_down(p);
+            }
+        }
+
+        if g.just_released(GamepadButton::South) {
+            state.puzzle.on_left_click_up();
+        }
+
+        if g.just_pressed(GamepadButton::East) {
+            if let Some(p) = state.mouse_pos {
+                state.puzzle.on_right_click_down(p);
+            }
+        }
+    }
+
+    // keyboard presses
     if keys.just_pressed(KeyCode::KeyQ) {
         if let Some(p) = state.mouse_pos {
             state.puzzle.add_point(p);
@@ -56,6 +79,7 @@ fn on_input_tick(
         state.puzzle.randomize();
     }
 
+    // mousebutton presses
     if mouse.just_pressed(MouseButton::Left) {
         if let Some(p) = state.mouse_pos {
             state.puzzle.on_left_click_down(p);
@@ -69,6 +93,25 @@ fn on_input_tick(
     if mouse.just_pressed(MouseButton::Right) {
         if let Some(p) = state.mouse_pos {
             state.puzzle.on_right_click_down(p);
+        }
+    }
+
+    // gamepad events
+    for e in evr_gamepad.read() {
+        match e {
+            GamepadEvent::Axis(axis) => {
+                let delta = match axis.axis {
+                    GamepadAxis::LeftStickX => Vec2::X * axis.value,
+                    GamepadAxis::LeftStickY => Vec2::Y * axis.value,
+                    _ => continue,
+                };
+
+                dbg!(delta);
+
+                state.mouse_pos = Some(state.mouse_pos.unwrap_or(Vec2::ZERO) + delta);
+            }
+            GamepadEvent::Button(b) => _ = dbg!(b),
+            _ => _ = dbg!(e),
         }
     }
 
@@ -108,6 +151,7 @@ const ACTIVE_EDGE_Z: f32 = 0.11;
 const VERTEX_Z: f32 = 0.2;
 const VERTEX_Z_2: f32 = 0.21;
 const ACTIVE_LINE_Z: f32 = 0.22;
+const CURSOR_Z: f32 = 0.3;
 
 fn draw_game(mut painter: ShapePainter, state: &GameState) {
     for (a, b, c, color) in state.puzzle.triangles() {
@@ -125,6 +169,14 @@ fn draw_game(mut painter: ShapePainter, state: &GameState) {
             let r = v.lerp(c, e.length_animation.actual);
             draw_line(&mut painter, v, r, z, e.thickness_animation.actual, BLACK);
         }
+        draw_line(
+            &mut painter,
+            a.pos,
+            b.pos,
+            HIDDEN_EDGE_Z,
+            3.0,
+            GRAY.with_alpha(0.2),
+        );
     }
 
     for v in state.puzzle.vertices() {
@@ -148,6 +200,10 @@ fn draw_game(mut painter: ShapePainter, state: &GameState) {
             let p = v.pos + Vec2::from_angle(a) * r;
             draw_circle(&mut painter, p, VERTEX_Z_2, 4.0, BLACK);
         }
+    }
+
+    if let Some(p) = state.mouse_pos {
+        draw_circle(&mut painter, p, CURSOR_Z, 5.0, GRAY.with_alpha(0.3));
     }
 
     draw_cursor_line(painter, &state.puzzle);
