@@ -75,8 +75,8 @@ fn on_input_tick(
         }
     }
 
-    if keys.just_pressed(KeyCode::KeyT) {
-        state.puzzle.triangulate();
+    if keys.just_pressed(KeyCode::KeyC) {
+        state.puzzle.complete();
     }
 
     if keys.just_pressed(KeyCode::KeyR) {
@@ -86,6 +86,8 @@ fn on_input_tick(
     if keys.just_pressed(KeyCode::KeyE) {
         state.puzzle = Puzzle::empty();
     }
+
+    state.is_snapping = keys.pressed(KeyCode::ShiftLeft);
 
     // mousebutton presses
     if mouse.just_pressed(MouseButton::Left) {
@@ -153,8 +155,8 @@ fn draw_line(painter: &mut ShapePainter, a: Vec2, b: Vec2, z: f32, thickness: f3
     painter.line(a.extend(0.0), b.extend(0.0));
 }
 
-const TRIANGLE_Z: f32 = 0.0;
-const FOLLOW_ICON_Z: f32 = 0.02;
+const SNAP_GRID_Z: f32 = 0.08;
+const TRIANGLE_Z: f32 = 0.09;
 const HIDDEN_EDGE_Z: f32 = 0.1;
 const ACTIVE_EDGE_Z: f32 = 0.11;
 const VERTEX_Z: f32 = 0.2;
@@ -167,6 +169,8 @@ fn draw_game(mut painter: ShapePainter, state: &GameState) {
         draw_triangle(&mut painter, a, b, c, TRIANGLE_Z, color);
     }
 
+    let complete = state.puzzle.is_complete();
+
     for (a, b, e) in state.puzzle.edges() {
         let z = if e.is_visible {
             ACTIVE_EDGE_Z
@@ -178,14 +182,16 @@ fn draw_game(mut painter: ShapePainter, state: &GameState) {
             let r = v.lerp(c, e.length_animation.actual);
             draw_line(&mut painter, v, r, z, e.thickness_animation.actual, BLACK);
         }
-        draw_line(
-            &mut painter,
-            a.pos,
-            b.pos,
-            HIDDEN_EDGE_Z,
-            3.0,
-            GRAY.with_alpha(0.2),
-        );
+        if !complete {
+            draw_line(
+                &mut painter,
+                a.pos,
+                b.pos,
+                HIDDEN_EDGE_Z,
+                3.0,
+                GRAY.with_alpha(0.2),
+            );
+        }
     }
 
     for v in state.puzzle.vertices() {
@@ -225,12 +231,40 @@ fn draw_game(mut painter: ShapePainter, state: &GameState) {
         draw_circle(&mut painter, p, CURSOR_Z, 5.0, GRAY.with_alpha(0.3));
     }
 
-    draw_cursor_line(painter, &state.puzzle);
+    draw_cursor_line(&mut painter, &state.puzzle);
+
+    if state.is_snapping {
+        draw_snap_grid(&mut painter, &state.puzzle, state.mouse_pos);
+    }
 }
 
-fn draw_cursor_line(mut painter: ShapePainter, puzzle: &Puzzle) -> Option<()> {
+fn draw_cursor_line(painter: &mut ShapePainter, puzzle: &Puzzle) -> Option<()> {
     let line = puzzle.active_line()?;
     let start = puzzle.vertex_n(line.0)?;
-    draw_line(&mut painter, start.pos, line.1, ACTIVE_LINE_Z, 3.0, ORANGE);
+    draw_line(painter, start.pos, line.1, ACTIVE_LINE_Z, 3.0, ORANGE);
     Some(())
+}
+
+fn draw_snap_grid(painter: &mut ShapePainter, puzzle: &Puzzle, pos: Option<Vec2>) {
+    let r = 200.0;
+    let color = LIGHT_GRAY;
+    let thickness = 1.0;
+    for v in puzzle.vertices() {
+        let up = v.pos + Vec2::Y * r;
+        let down = v.pos - Vec2::Y * r;
+        let right = v.pos + Vec2::X * r;
+        let left = v.pos - Vec2::X * r;
+        draw_line(painter, left, right, SNAP_GRID_Z, thickness, color);
+        draw_line(painter, up, down, SNAP_GRID_Z, thickness, color);
+
+        if let Some(p) = pos {
+            if v.pos.distance(p) > r {
+                continue;
+            }
+            let u = p.with_x(v.pos.x);
+            let v = p.with_y(v.pos.y);
+            draw_circle(painter, u, SNAP_GRID_Z, 3.0, RED);
+            draw_circle(painter, v, SNAP_GRID_Z, 3.0, RED);
+        }
+    }
 }

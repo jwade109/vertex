@@ -2,34 +2,41 @@ use crate::edge::*;
 use crate::math::*;
 use crate::triangle::*;
 use crate::vertex::*;
+use bevy::color::palettes::basic::*;
 use bevy::prelude::*;
-use delaunator::{triangulate, Point};
 use rand::seq::IndexedRandom;
 use std::collections::HashMap;
 
 const CLICK_TARGET_SIZE_PIXELS: f32 = 50.0;
 
 pub struct Puzzle {
+    palette: Vec<Srgba>,
     next_vertex_id: usize,
     vertices: HashMap<usize, Vertex>,
     edges: HashMap<(usize, usize), Edge>,
-    triangles: Vec<Triangle>,
+    triangles: HashMap<(usize, usize, usize), Triangle>,
     active_line: Option<(usize, Vec2)>,
 }
 
-fn random_color() -> Srgba {
-    let colors = vec!["3c4a74", "5c8d8d", "6caeb3", "9bc2bb", "a4b2ca"];
-    let s = *colors.choose(&mut rand::rng()).unwrap();
-    Srgba::hex(s).unwrap()
+fn generate_color_palette(n: usize) -> Vec<Srgba> {
+    (0..n)
+        .map(|_| {
+            let r = rand();
+            let g = rand();
+            let b = rand();
+            Srgba::new(r, g, b, 1.0).mix(&WHITE, 0.2)
+        })
+        .collect()
 }
 
 impl Puzzle {
     pub fn empty() -> Self {
         Self {
+            palette: generate_color_palette(8),
             next_vertex_id: 0,
             vertices: HashMap::new(),
             edges: HashMap::new(),
-            triangles: Vec::new(),
+            triangles: HashMap::new(),
             active_line: None,
         }
     }
@@ -40,44 +47,40 @@ impl Puzzle {
         s
     }
 
-    pub fn triangulate(&mut self) {
-        let mut vvec: Vec<(&usize, &Vertex)> = self.vertices.iter().collect();
-        vvec.sort_by_key(|e| e.0);
+    pub fn complete(&mut self) {
+        for (_, e) in &mut self.edges {
+            e.is_visible = true;
+        }
+    }
 
-        let dpoints: Vec<_> = vvec
-            .iter()
-            .map(|(_, v)| Point {
-                x: v.pos.x as f64,
-                y: v.pos.y as f64,
-            })
-            .collect();
-
-        let result = triangulate(&dpoints);
-
-        self.edges.clear();
-
-        self.triangles = result
-            .triangles
-            .windows(3)
-            .enumerate()
-            .filter_map(|(i, w)| {
-                if i % 3 > 0 {
-                    return None;
+    pub fn update_triangles(&mut self) {
+        for (_, edge) in &self.edges {
+            let u = edge.a;
+            let v = edge.b;
+            for (w, _) in &self.vertices {
+                let w = *w;
+                if u >= v || v >= w {
+                    continue;
                 }
 
-                let a = *vvec[w[0]].0;
-                let b = *vvec[w[1]].0;
-                let c = *vvec[w[2]].0;
+                let key = (u, v, w);
 
-                Some(Triangle::new(a, b, c, random_color()))
-            })
-            .collect();
-
-        for t in self.triangles.clone() {
-            self.add_edge(t.a, t.b, true);
-            self.add_edge(t.a, t.c, true);
-            self.add_edge(t.b, t.c, true);
+                if self.is_edge(v, w) && self.is_edge(u, w) {
+                    if self.triangles.contains_key(&key) {
+                        continue;
+                    }
+                    let color = self.palette.choose(&mut rand::rng()).unwrap();
+                    let t = Triangle::new(u, v, w, *color);
+                    self.triangles.insert(key, t);
+                }
+            }
         }
+
+        let mut triangles = self.triangles.clone();
+        triangles.retain(|_, t| {
+            self.is_edge(t.a, t.b) && self.is_edge(t.a, t.c) && self.is_edge(t.b, t.c)
+        });
+        self.triangles = triangles;
     }
 
     fn next_vertex_id(&mut self) -> usize {
@@ -103,6 +106,7 @@ impl Puzzle {
             } else {
                 let mut new_vertex = Vertex::new(p);
                 new_vertex.is_clicked = true;
+                new_vertex.is_hovered = true;
                 let id = self.next_vertex_id();
                 self.vertices.insert(id, new_vertex);
                 id
@@ -161,7 +165,7 @@ impl Puzzle {
     }
 
     pub fn triangles(&self) -> impl Iterator<Item = (Vec2, Vec2, Vec2, Srgba)> + use<'_> {
-        self.triangles.iter().filter_map(|t| {
+        self.triangles.iter().filter_map(|(_, t)| {
             if t.animation.actual < 0.01 {
                 return None;
             }
@@ -170,11 +174,9 @@ impl Puzzle {
             let b = self.vertex_n(t.b)?.pos;
             let c = self.vertex_n(t.c)?.pos;
 
-            let center = (a + b + c) / 3.0;
             let s = t.animation.actual;
-            let a = center.lerp(a, s);
-            let b = center.lerp(b, s);
-            let c = center.lerp(c, s);
+            let a = c.lerp(a, s);
+            let b = c.lerp(b, s);
 
             Some((a, b, c, t.color))
         })
@@ -233,6 +235,11 @@ impl Puzzle {
         self.edges.get_mut(&(emin, emax))
     }
 
+    fn is_edge(&self, a: usize, b: usize) -> bool {
+        let (a, b) = (a.min(b), a.max(b));
+        self.edges.contains_key(&(a, b))
+    }
+
     fn add_edge(&mut self, a: usize, b: usize, state: bool) {
         if a == b {
             return;
@@ -242,6 +249,7 @@ impl Puzzle {
         let max = a.max(b);
         let edge = Edge::new(min, max, state);
         self.edges.insert((min, max), edge);
+        self.update_triangles();
     }
 
     pub fn on_left_click_up(&mut self) {
@@ -263,7 +271,9 @@ impl Puzzle {
 
     pub fn set_cursor_position(&mut self, pos: Option<Vec2>) {
         for (_, v) in &mut self.vertices {
-            v.is_hovered = false;
+            if !v.is_follow() {
+                v.is_hovered = false;
+            }
             let base_radius = 8.0;
             let extra = if let Some(pos) = pos {
                 let d = pos.distance(v.pos);
@@ -316,7 +326,7 @@ impl Puzzle {
 
             if v.is_clicked && v.is_hovered {
                 v.marker_radius.target = 25.0;
-            } else if is_complete {
+            } else if is_complete && v.visible_count > 0 {
                 v.marker_radius.target = 0.0;
             } else if v.invisible_count == 0 && v.visible_count > 0 {
                 v.marker_radius.target = 3.0;
@@ -344,7 +354,7 @@ impl Puzzle {
             e.thickness_animation.step();
         }
 
-        for t in &mut self.triangles {
+        for (_, t) in &mut self.triangles {
             t.is_visible = is_edge_visible(&self.edges, t.a, t.b)
                 && is_edge_visible(&self.edges, t.a, t.c)
                 && is_edge_visible(&self.edges, t.b, t.c);
@@ -355,7 +365,9 @@ impl Puzzle {
     }
 
     pub fn is_complete(&self) -> bool {
-        !self.triangles.is_empty() && self.triangles.iter().all(|t| t.is_visible)
+        !self.triangles.is_empty()
+            && self.triangles.iter().all(|(_, t)| t.is_visible)
+            && self.vertices.iter().all(|(_, v)| v.visible_count > 1)
     }
 }
 

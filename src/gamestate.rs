@@ -5,6 +5,7 @@ use bevy::prelude::*;
 pub struct GameState {
     pub mouse_pos: Option<Vec2>,
     pub puzzle: Puzzle,
+    pub is_snapping: bool,
 }
 
 impl GameState {
@@ -12,6 +13,7 @@ impl GameState {
         Self {
             mouse_pos: None,
             puzzle: Puzzle::new(),
+            is_snapping: false,
         }
     }
 }
