@@ -4177,6 +4177,7 @@ dependencies = [
  "bevy_dylib",
  "bevy_vector_shapes",
  "delaunator",
+ "indexmap",
  "rand 0.9.2",
 ]
 

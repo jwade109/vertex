@@ -1,3 +1,4 @@
+use crate::color_picker::ColorPicker;
 use crate::puzzle::Puzzle;
 use bevy::prelude::*;
 
@@ -5,6 +6,7 @@ use bevy::prelude::*;
 pub struct GameState {
     pub mouse_pos: Option<Vec2>,
     pub puzzle: Puzzle,
+    pub color_picker: ColorPicker,
     pub is_snapping: bool,
 }
 
@@ -13,6 +15,7 @@ impl GameState {
         Self {
             mouse_pos: None,
             puzzle: Puzzle::new(),
+            color_picker: ColorPicker::new(),
             is_snapping: false,
         }
     }

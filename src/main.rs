@@ -1,3 +1,4 @@
+mod color_picker;
 mod edge;
 mod gamestate;
 mod lpf;
@@ -6,6 +7,7 @@ mod puzzle;
 mod triangle;
 mod vertex;
 
+use crate::color_picker::*;
 use crate::gamestate::*;
 use crate::math::*;
 use crate::puzzle::*;
@@ -33,6 +35,7 @@ fn startup(mut commands: Commands) {
 
 fn on_fixed_tick(mut state: ResMut<GameState>) {
     state.puzzle.step();
+    state.color_picker.step();
 }
 
 fn on_input_tick(
@@ -83,7 +86,7 @@ fn on_input_tick(
         state.puzzle.randomize();
     }
 
-    if keys.just_pressed(KeyCode::KeyE) {
+    if keys.just_pressed(KeyCode::KeyL) {
         state.puzzle = Puzzle::empty();
     }
 
@@ -92,18 +95,25 @@ fn on_input_tick(
     // mousebutton presses
     if mouse.just_pressed(MouseButton::Left) {
         if let Some(p) = state.mouse_pos {
+            state.color_picker.on_left_click_down();
             state.puzzle.on_left_click_down(p);
         }
     }
 
     if mouse.just_released(MouseButton::Left) {
+        state.color_picker.on_left_click_up();
         state.puzzle.on_left_click_up();
     }
 
     if mouse.just_pressed(MouseButton::Right) {
         if let Some(p) = state.mouse_pos {
+            state.color_picker.open(p);
             state.puzzle.on_right_click_down(p);
         }
+    }
+
+    if mouse.just_released(MouseButton::Right) {
+        state.color_picker.close();
     }
 
     // gamepad events
@@ -126,6 +136,7 @@ fn on_input_tick(
     }
 
     let x = state.mouse_pos;
+    state.color_picker.set_cursor_position(x);
     state.puzzle.set_cursor_position(x);
 }
 
@@ -139,6 +150,24 @@ fn draw_circle(painter: &mut ShapePainter, p: Vec2, z: f32, r: f32, color: Srgba
     painter.set_translation(p.extend(z));
     painter.set_color(color);
     painter.circle(r);
+    painter.set_translation(Vec3::ZERO);
+}
+
+fn draw_hollow_circle(painter: &mut ShapePainter, p: Vec2, z: f32, r: f32, t: f32, color: Srgba) {
+    painter.thickness = t;
+    painter.hollow = true;
+    painter.set_translation(p.extend(z));
+    painter.set_color(color);
+    painter.circle(r + t / 2.0);
+    painter.set_translation(Vec3::ZERO);
+}
+
+fn fill_ring(painter: &mut ShapePainter, p: Vec2, z: f32, ri: f32, ro: f32, color: Srgba) {
+    painter.thickness = ro - ri;
+    painter.hollow = true;
+    painter.set_translation(p.extend(z));
+    painter.set_color(color);
+    painter.circle(ro);
     painter.set_translation(Vec3::ZERO);
 }
 
@@ -162,6 +191,10 @@ const ACTIVE_EDGE_Z: f32 = 0.11;
 const VERTEX_Z: f32 = 0.2;
 const VERTEX_Z_2: f32 = 0.21;
 const ACTIVE_LINE_Z: f32 = 0.22;
+const PICKER_FILL_Z: f32 = 0.24;
+const PICKER_LINES_Z: f32 = 0.25;
+const PICKER_NODE_FILL_Z: f32 = 0.26;
+const PICKER_NODE_LINES_Z: f32 = 0.27;
 const CURSOR_Z: f32 = 0.3;
 
 fn draw_game(mut painter: ShapePainter, state: &GameState) {
@@ -236,6 +269,12 @@ fn draw_game(mut painter: ShapePainter, state: &GameState) {
     if state.is_snapping {
         draw_snap_grid(&mut painter, &state.puzzle, state.mouse_pos);
     }
+
+    draw_color_picker(&mut painter, &state.color_picker);
+
+    if let Some(c) = state.color_picker.selected_color() {
+        draw_circle(&mut painter, Vec2::ZERO, CURSOR_Z, 100.0, c)
+    }
 }
 
 fn draw_cursor_line(painter: &mut ShapePainter, puzzle: &Puzzle) -> Option<()> {
@@ -266,5 +305,47 @@ fn draw_snap_grid(painter: &mut ShapePainter, puzzle: &Puzzle, pos: Option<Vec2>
             draw_circle(painter, u, SNAP_GRID_Z, 3.0, RED);
             draw_circle(painter, v, SNAP_GRID_Z, 3.0, RED);
         }
+    }
+}
+
+fn draw_color_picker(painter: &mut ShapePainter, picker: &ColorPicker) {
+    let alpha = picker.alpha();
+    let r1 = picker.inner_radius();
+    let r2 = picker.middle_radius();
+    let r3 = picker.outer_radius();
+    let p = picker.center();
+    let t = 3.0;
+
+    fill_ring(painter, p, PICKER_FILL_Z, r1, r2, WHITE.with_alpha(alpha));
+    fill_ring(painter, p, PICKER_FILL_Z, r2, r3, WHITE.with_alpha(alpha));
+    draw_hollow_circle(painter, p, PICKER_LINES_Z, r1, t, BLACK.with_alpha(alpha));
+    draw_hollow_circle(painter, p, PICKER_LINES_Z, r2, t, BLACK.with_alpha(alpha));
+    draw_hollow_circle(painter, p, PICKER_LINES_Z, r3, t, BLACK.with_alpha(alpha));
+
+    for node in picker.samplers() {
+        if node.radius.actual < 2.0 {
+            continue;
+        }
+
+        draw_circle(
+            painter,
+            node.pos,
+            PICKER_NODE_FILL_Z,
+            node.radius.actual,
+            node.color.with_alpha(alpha),
+        );
+        draw_hollow_circle(
+            painter,
+            node.pos,
+            PICKER_NODE_LINES_Z,
+            node.radius.actual,
+            3.0,
+            BLACK.with_alpha(alpha),
+        );
+    }
+
+    if let Some(c) = picker.preview_color() {
+        draw_circle(painter, p, PICKER_FILL_Z, r1 * 0.8, c);
+        draw_hollow_circle(painter, p, PICKER_LINES_Z, r1 * 0.8, 3.0, BLACK);
     }
 }
