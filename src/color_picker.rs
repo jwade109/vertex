@@ -1,5 +1,8 @@
+use crate::drawing::*;
 use crate::lpf::Lpf;
 use crate::math::*;
+use crate::take_once::TakeOnce;
+use crate::ui_element::*;
 use bevy::color::*;
 use indexmap::IndexMap;
 
@@ -83,12 +86,15 @@ impl ColorPicker {
         }
     }
 
-    pub fn open(&mut self, p: Vec2) {
+    pub fn on_right_click_down(&mut self, p: &mut TakeOnce<Vec2>) {
         if self.is_open {
             return;
         }
-        self.is_open = true;
-        self.pos = p;
+        let p = p.take();
+        if let Some(p) = p {
+            self.is_open = true;
+            self.pos = p;
+        }
     }
 
     pub fn close(&mut self) {
@@ -99,7 +105,91 @@ impl ColorPicker {
         self.active_node = None;
     }
 
-    pub fn step(&mut self) {
+    pub fn center(&self) -> Vec2 {
+        self.pos
+    }
+
+    pub fn inner_radius(&self) -> f32 {
+        self.inner_animation.actual * PICKER_INNER_RADIUS
+    }
+
+    pub fn middle_radius(&self) -> f32 {
+        self.inner_animation.actual * PICKER_MIDDLE_RADIUS
+    }
+
+    pub fn outer_radius(&self) -> f32 {
+        self.middle_radius() + self.outer_animation.actual * PICKER_OUTER_BAND_WIDTH
+    }
+
+    pub fn outer_band_width(&self) -> f32 {
+        self.outer_animation.actual * PICKER_OUTER_BAND_WIDTH
+    }
+
+    pub fn alpha(&self) -> f32 {
+        self.inner_animation.actual
+    }
+
+    pub fn is_outer_open(&self) -> bool {
+        self.active_node.is_some()
+    }
+
+    fn nodes_with_id(&self) -> impl Iterator<Item = (&usize, &SelectionNode)> + use<'_> {
+        self.colors
+            .iter()
+            .flat_map(|(id, c)| [(id, &c.node)].into_iter().chain(c.secondary.iter()))
+    }
+
+    fn selection_node_at(&self, p: Vec2) -> Option<usize> {
+        for (id, node) in self.nodes_with_id() {
+            let d = node.pos.distance(p);
+            if d < node.radius.actual {
+                return Some(*id);
+            }
+        }
+        None
+    }
+
+    pub fn on_left_click_down(&mut self) {
+        if !self.is_open {
+            return;
+        }
+
+        self.clicked_node = self.active_node;
+    }
+
+    pub fn on_left_click_up(&mut self) {
+        if !self.is_open {
+            return;
+        }
+
+        self.clicked_node = None;
+    }
+
+    fn find_node(&self, id: usize) -> Option<&SelectionNode> {
+        self.nodes_with_id()
+            .find(|(n, _)| **n == id)
+            .map(|(_, n)| n)
+    }
+
+    pub fn preview_color(&self) -> Option<Srgba> {
+        self.preview_color
+    }
+
+    pub fn selected_color(&self) -> Option<Srgba> {
+        self.selected_color
+    }
+
+    pub fn samplers(&self) -> impl Iterator<Item = &SelectionNode> + use<'_> {
+        self.nodes_with_id().map(|(_, n)| n)
+    }
+}
+
+impl UiElement for ColorPicker {
+    fn contains(&self, _p: Vec2) -> bool {
+        todo!()
+    }
+
+    fn step(&mut self) {
         self.inner_animation.target = self.is_open as u8 as f32;
         self.inner_animation.step();
         self.outer_animation.target = self.is_outer_open() as u8 as f32;
@@ -166,52 +256,11 @@ impl ColorPicker {
         }
     }
 
-    pub fn center(&self) -> Vec2 {
-        self.pos
-    }
-
-    pub fn inner_radius(&self) -> f32 {
-        self.inner_animation.actual * PICKER_INNER_RADIUS
-    }
-
-    pub fn middle_radius(&self) -> f32 {
-        self.inner_animation.actual * PICKER_MIDDLE_RADIUS
-    }
-
-    pub fn outer_radius(&self) -> f32 {
-        self.middle_radius() + self.outer_animation.actual * PICKER_OUTER_BAND_WIDTH
-    }
-
-    pub fn outer_band_width(&self) -> f32 {
-        self.outer_animation.actual * PICKER_OUTER_BAND_WIDTH
-    }
-
-    pub fn alpha(&self) -> f32 {
-        self.inner_animation.actual
-    }
-
-    pub fn is_outer_open(&self) -> bool {
-        self.active_node.is_some()
-    }
-
-    fn nodes_with_id(&self) -> impl Iterator<Item = (&usize, &SelectionNode)> + use<'_> {
-        self.colors
-            .iter()
-            .flat_map(|(id, c)| [(id, &c.node)].into_iter().chain(c.secondary.iter()))
-    }
-
-    fn selection_node_at(&self, p: Vec2) -> Option<usize> {
-        for (id, node) in self.nodes_with_id() {
-            let d = node.pos.distance(p);
-            if d < node.radius.actual {
-                return Some(*id);
-            }
+    fn set_cursor_position(&mut self, p: &mut TakeOnce<Vec2>) {
+        if !self.is_open {
+            return;
         }
-        None
-    }
-
-    pub fn set_cursor_position(&mut self, pos: Option<Vec2>) {
-        if let Some(p) = pos {
+        if let Some(p) = p.take() {
             let active_node = self.selection_node_at(p);
             if active_node.is_some() {
                 self.active_node = active_node;
@@ -226,37 +275,53 @@ impl ColorPicker {
         }
     }
 
-    pub fn on_left_click_down(&mut self) {
-        if !self.is_open {
-            return;
+    fn draw(&self, painter: &mut ShapePainter, text: &mut TextPainter) {
+        let alpha = self.alpha();
+        let r1 = self.inner_radius();
+        let r2 = self.middle_radius();
+        let r3 = self.outer_radius();
+        let p = self.center();
+        let t = 3.0;
+
+        fill_ring(painter, p, PICKER_FILL_Z, r1, r2, WHITE.with_alpha(alpha));
+        fill_ring(painter, p, PICKER_FILL_Z, r2, r3, WHITE.with_alpha(alpha));
+        draw_hollow_circle(painter, p, PICKER_LINES_Z, r1, t, BLACK.with_alpha(alpha));
+        draw_hollow_circle(painter, p, PICKER_LINES_Z, r2, t, BLACK.with_alpha(alpha));
+        draw_hollow_circle(painter, p, PICKER_LINES_Z, r3, t, BLACK.with_alpha(alpha));
+
+        for node in self.samplers() {
+            if node.radius.actual < 2.0 {
+                continue;
+            }
+
+            draw_circle(
+                painter,
+                node.pos,
+                PICKER_NODE_FILL_Z,
+                node.radius.actual,
+                node.color.with_alpha(alpha),
+            );
+            draw_hollow_circle(
+                painter,
+                node.pos,
+                PICKER_NODE_LINES_Z,
+                node.radius.actual,
+                3.0,
+                BLACK.with_alpha(alpha),
+            );
         }
 
-        self.clicked_node = self.active_node;
-    }
-
-    pub fn on_left_click_up(&mut self) {
-        if !self.is_open {
-            return;
+        if let Some(c) = self.preview_color() {
+            draw_circle(painter, p, PICKER_FILL_Z, r1 * 0.8, c);
+            draw_hollow_circle(painter, p, PICKER_LINES_Z, r1 * 0.8, 3.0, BLACK);
+            text.set_position(p.extend(100.0));
+            text.set_height(48.0);
+            text.text(format!("{:?}", c));
         }
-
-        self.clicked_node = None;
-    }
-
-    fn find_node(&self, id: usize) -> Option<&SelectionNode> {
-        self.nodes_with_id()
-            .find(|(n, _)| **n == id)
-            .map(|(_, n)| n)
-    }
-
-    pub fn preview_color(&self) -> Option<Srgba> {
-        self.preview_color
-    }
-
-    pub fn selected_color(&self) -> Option<Srgba> {
-        self.selected_color
-    }
-
-    pub fn samplers(&self) -> impl Iterator<Item = &SelectionNode> + use<'_> {
-        self.nodes_with_id().map(|(_, n)| n)
     }
 }
+
+const PICKER_FILL_Z: f32 = 0.24;
+const PICKER_LINES_Z: f32 = 0.25;
+const PICKER_NODE_FILL_Z: f32 = 0.26;
+const PICKER_NODE_LINES_Z: f32 = 0.27;

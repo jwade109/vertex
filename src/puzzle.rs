@@ -1,10 +1,12 @@
 use crate::edge::*;
 use crate::math::*;
+use crate::take_once::TakeOnce;
 use crate::triangle::*;
 use crate::vertex::*;
 use bevy::color::palettes::basic::*;
 use bevy::prelude::*;
 use rand::seq::IndexedRandom;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 const CLICK_TARGET_SIZE_PIXELS: f32 = 50.0;
@@ -188,7 +190,11 @@ impl Puzzle {
         // TODO faces
     }
 
-    pub fn on_right_click_down(&mut self, pos: Vec2) {
+    pub fn on_right_click_down(&mut self, pos: &mut TakeOnce<Vec2>) {
+        let pos = match pos.take() {
+            Some(v) => v,
+            _ => return,
+        };
         if let Some(id) = self.vertex_at(pos, CLICK_TARGET_SIZE_PIXELS) {
             let n_active_edges = self
                 .edges
@@ -269,7 +275,8 @@ impl Puzzle {
         }
     }
 
-    pub fn set_cursor_position(&mut self, pos: Option<Vec2>) {
+    pub fn set_cursor_position(&mut self, p: &mut TakeOnce<Vec2>) {
+        let pos = p.take();
         for (_, v) in &mut self.vertices {
             if !v.is_follow() {
                 v.is_hovered = false;
@@ -306,6 +313,21 @@ impl Puzzle {
 
     pub fn active_line(&self) -> Option<(usize, Vec2)> {
         self.active_line
+    }
+
+    fn get_triangle_at(&mut self, p: Vec2) -> Option<&mut Triangle> {
+        self.triangles.iter_mut().find_map(|(_, t)| {
+            let a = self.vertices.get(&t.a)?.pos;
+            let b = self.vertices.get(&t.b)?.pos;
+            let c = self.vertices.get(&t.c)?.pos;
+            point_in_triangle(p, a, b, c).then(|| t)
+        })
+    }
+
+    pub fn set_color(&mut self, p: Vec2, color: Srgba) {
+        if let Some(t) = self.get_triangle_at(p) {
+            t.color = color;
+        }
     }
 
     pub fn step(&mut self) {
@@ -377,4 +399,78 @@ fn is_edge_visible(edges: &HashMap<(usize, usize), Edge>, a: usize, b: usize) ->
     } else {
         false
     }
+}
+
+#[derive(Deserialize, Serialize, Default)]
+struct PuzzleRepr {
+    vertices: HashMap<usize, Vec2>,
+    edges: Vec<(usize, usize)>,
+    triangles: Vec<(usize, usize, usize, Srgba)>,
+}
+
+impl From<PuzzleRepr> for Puzzle {
+    fn from(value: PuzzleRepr) -> Self {
+        let mut puzzle = Puzzle::empty();
+        let mut max_id = 0;
+        puzzle.vertices = value
+            .vertices
+            .into_iter()
+            .map(|(id, p)| {
+                let v = Vertex::new(p);
+                max_id = max_id.max(id);
+                (id, v)
+            })
+            .collect();
+        for (a, b) in value.edges {
+            puzzle.add_edge(a, b, rand() < 0.3);
+        }
+
+        for (a, b, c, color) in value.triangles {
+            if let Some(t) = puzzle.triangles.get_mut(&(a, b, c)) {
+                t.color = color;
+            }
+        }
+
+        puzzle.next_vertex_id = max_id + 1;
+
+        puzzle
+    }
+}
+
+impl From<&Puzzle> for PuzzleRepr {
+    fn from(value: &Puzzle) -> Self {
+        let mut repr = PuzzleRepr::default();
+        for (id, p) in &value.vertices {
+            repr.vertices.insert(*id, p.pos);
+        }
+        for (_, e) in &value.edges {
+            repr.edges.push((e.a, e.b));
+        }
+        for (_, t) in &value.triangles {
+            repr.triangles.push((t.a, t.b, t.c, t.color));
+        }
+        repr
+    }
+}
+
+pub fn puzzle_to_file(puzzle: &Puzzle, filepath: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let repr = PuzzleRepr::from(puzzle);
+    let s = serde_yaml::to_string(&repr)?;
+    std::fs::write(filepath, s)?;
+    Ok(())
+}
+
+pub fn puzzle_from_file(filepath: &str) -> Result<Puzzle, Box<dyn std::error::Error>> {
+    let s = std::fs::read_to_string(filepath)?;
+    let repr: PuzzleRepr = serde_yaml::from_str(&s)?;
+    Ok(Puzzle::from(repr))
+}
+
+pub fn point_in_triangle(test: Vec2, a: Vec2, b: Vec2, c: Vec2) -> bool {
+    let alpha = ((b.y - c.y) * (test.x - c.x) + (c.x - b.x) * (test.y - c.y))
+        / ((b.y - c.y) * (a.x - c.x) + (c.x - b.x) * (a.y - c.y));
+    let beta = ((c.y - a.y) * (test.x - c.x) + (a.x - c.x) * (test.y - c.y))
+        / ((b.y - c.y) * (a.x - c.x) + (c.x - b.x) * (a.y - c.y));
+    let gamma = 1.0 - alpha - beta;
+    alpha > 0.0 && beta > 0.0 && gamma > 0.0
 }

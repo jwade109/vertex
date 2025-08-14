@@ -1,21 +1,26 @@
+mod app;
+mod button;
 mod color_picker;
+mod drawing;
 mod edge;
-mod gamestate;
 mod lpf;
 mod math;
 mod puzzle;
+mod take_once;
+mod text;
 mod triangle;
+mod ui_element;
 mod vertex;
+mod window;
 
-use crate::color_picker::*;
-use crate::gamestate::*;
+use crate::app::*;
+use crate::drawing::*;
 use crate::math::*;
-use crate::puzzle::*;
-use bevy::color::palettes::css::*;
+use crate::take_once::TakeOnce;
+use crate::text::*;
 use bevy::input::gamepad::{Gamepad, GamepadEvent};
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
-use bevy_vector_shapes::prelude::*;
 
 fn main() {
     App::new()
@@ -23,19 +28,19 @@ fn main() {
         .add_plugins(Shape2dPlugin::default())
         .add_systems(Startup, startup)
         .add_systems(FixedUpdate, on_fixed_tick)
-        .add_systems(Update, (on_input_tick, on_render_tick).chain())
+        .add_systems(Update, (on_input_tick, on_render_tick, text_system).chain())
         .run();
 }
 
 fn startup(mut commands: Commands) {
     commands.spawn(Camera2d);
-    commands.insert_resource(GameState::new());
-    commands.insert_resource(ClearColor(Srgba::new(0.9, 0.9, 0.9, 1.0).into()))
+    commands.insert_resource(VertexApp::new());
+    commands.insert_resource(ClearColor(Srgba::new(0.9, 0.9, 0.9, 1.0).into()));
+    commands.insert_resource(TextPainter::new());
 }
 
-fn on_fixed_tick(mut state: ResMut<GameState>) {
-    state.puzzle.step();
-    state.color_picker.step();
+fn on_fixed_tick(mut app: ResMut<VertexApp>) {
+    app.step()
 }
 
 fn on_input_tick(
@@ -44,76 +49,77 @@ fn on_input_tick(
     window: Single<&Window, With<PrimaryWindow>>,
     gamepad: Query<&Gamepad>,
     mut evr_gamepad: EventReader<GamepadEvent>,
-    mut state: ResMut<GameState>,
+    mut app: ResMut<VertexApp>,
 ) {
     if let Some(p) = window.cursor_position() {
         let dims = window.size();
         let x = p - dims / 2.0;
-        state.mouse_pos = Some(x.with_y(-x.y))
+        app.mouse_pos = Some(x.with_y(-x.y))
     } else if let Some(g) = gamepad.get_single().ok() {
         let delta = g.left_stick() * 6.0;
-        state.mouse_pos = Some(state.mouse_pos.unwrap_or(Vec2::ZERO) + delta);
+        app.mouse_pos = Some(app.mouse_pos.unwrap_or(Vec2::ZERO) + delta);
 
         if g.just_pressed(GamepadButton::South) {
-            if let Some(p) = state.mouse_pos {
-                state.puzzle.on_left_click_down(p);
-            }
+            app.on_left_mouse_press();
         }
 
         if g.just_released(GamepadButton::South) {
-            state.puzzle.on_left_click_up();
+            app.on_left_mouse_release()
         }
 
         if g.just_pressed(GamepadButton::East) {
-            if let Some(p) = state.mouse_pos {
-                state.puzzle.on_right_click_down(p);
-            }
+            app.on_right_mouse_press();
         }
     }
 
     // keyboard presses
     if keys.just_pressed(KeyCode::KeyQ) {
-        if let Some(p) = state.mouse_pos {
-            state.puzzle.add_point(p, true);
+        if let Some(p) = app.mouse_pos {
+            app.puzzle.add_point(p, true);
         }
     }
 
     if keys.just_pressed(KeyCode::KeyC) {
-        state.puzzle.complete();
+        app.puzzle.complete();
     }
 
     if keys.just_pressed(KeyCode::KeyR) {
-        state.puzzle.randomize();
+        app.puzzle.randomize();
     }
 
     if keys.just_pressed(KeyCode::KeyL) {
-        state.puzzle = Puzzle::empty();
+        app.puzzle = Puzzle::empty();
     }
 
-    state.is_snapping = keys.pressed(KeyCode::ShiftLeft);
+    if keys.pressed(KeyCode::ControlLeft) && keys.just_pressed(KeyCode::KeyS) {
+        println!("Saving to file");
+        _ = dbg!(puzzle_to_file(&app.puzzle, "puzzle.txt"));
+    }
+
+    if keys.pressed(KeyCode::ControlLeft) && keys.just_pressed(KeyCode::KeyO) {
+        println!("Opening puzzle file");
+        if let Ok(p) = puzzle_from_file("puzzle.txt") {
+            app.puzzle = p;
+        }
+    }
+
+    app.is_snapping = keys.pressed(KeyCode::ShiftLeft);
 
     // mousebutton presses
     if mouse.just_pressed(MouseButton::Left) {
-        if let Some(p) = state.mouse_pos {
-            state.color_picker.on_left_click_down();
-            state.puzzle.on_left_click_down(p);
-        }
+        app.on_left_mouse_press();
     }
 
     if mouse.just_released(MouseButton::Left) {
-        state.color_picker.on_left_click_up();
-        state.puzzle.on_left_click_up();
+        app.on_left_mouse_release();
     }
 
     if mouse.just_pressed(MouseButton::Right) {
-        if let Some(p) = state.mouse_pos {
-            state.color_picker.open(p);
-            state.puzzle.on_right_click_down(p);
-        }
+        app.on_right_mouse_press();
     }
 
     if mouse.just_released(MouseButton::Right) {
-        state.color_picker.close();
+        app.on_right_mouse_release();
     }
 
     // gamepad events
@@ -128,83 +134,39 @@ fn on_input_tick(
 
                 dbg!(delta);
 
-                state.mouse_pos = Some(state.mouse_pos.unwrap_or(Vec2::ZERO) + delta);
+                app.mouse_pos = Some(app.mouse_pos.unwrap_or(Vec2::ZERO) + delta);
             }
             GamepadEvent::Button(b) => _ = dbg!(b),
             _ => _ = dbg!(e),
         }
     }
 
-    let x = state.mouse_pos;
-    state.color_picker.set_cursor_position(x);
-    state.puzzle.set_cursor_position(x);
+    let p = app.mouse_pos;
+    app.set_cursor_position(TakeOnce::from_option(p));
+
+    app.buttons.sort_by_key(|e| 1 - e.is_clicked() as u8);
 }
 
-fn on_render_tick(painter: ShapePainter, state: Res<GameState>) {
-    draw_game(painter, &state);
+fn on_render_tick(painter: ShapePainter, app: Res<VertexApp>, mut text: ResMut<TextPainter>) {
+    draw_game(painter, &mut text, &app);
 }
 
-fn draw_circle(painter: &mut ShapePainter, p: Vec2, z: f32, r: f32, color: Srgba) {
-    painter.thickness = 3.0;
-    painter.hollow = false;
-    painter.set_translation(p.extend(z));
-    painter.set_color(color);
-    painter.circle(r);
-    painter.set_translation(Vec3::ZERO);
-}
-
-fn draw_hollow_circle(painter: &mut ShapePainter, p: Vec2, z: f32, r: f32, t: f32, color: Srgba) {
-    painter.thickness = t;
-    painter.hollow = true;
-    painter.set_translation(p.extend(z));
-    painter.set_color(color);
-    painter.circle(r + t / 2.0);
-    painter.set_translation(Vec3::ZERO);
-}
-
-fn fill_ring(painter: &mut ShapePainter, p: Vec2, z: f32, ri: f32, ro: f32, color: Srgba) {
-    painter.thickness = ro - ri;
-    painter.hollow = true;
-    painter.set_translation(p.extend(z));
-    painter.set_color(color);
-    painter.circle(ro);
-    painter.set_translation(Vec3::ZERO);
-}
-
-fn draw_triangle(painter: &mut ShapePainter, a: Vec2, b: Vec2, c: Vec2, z: f32, color: Srgba) {
-    painter.set_translation(Vec2::ZERO.extend(z));
-    painter.set_color(color);
-    painter.triangle(a, b, c);
-}
-
-fn draw_line(painter: &mut ShapePainter, a: Vec2, b: Vec2, z: f32, thickness: f32, color: Srgba) {
-    painter.thickness = thickness;
-    painter.set_color(color);
-    painter.set_translation(Vec2::ZERO.extend(z));
-    painter.line(a.extend(0.0), b.extend(0.0));
-}
-
-const SNAP_GRID_Z: f32 = 0.08;
 const TRIANGLE_Z: f32 = 0.09;
 const HIDDEN_EDGE_Z: f32 = 0.1;
 const ACTIVE_EDGE_Z: f32 = 0.11;
 const VERTEX_Z: f32 = 0.2;
 const VERTEX_Z_2: f32 = 0.21;
 const ACTIVE_LINE_Z: f32 = 0.22;
-const PICKER_FILL_Z: f32 = 0.24;
-const PICKER_LINES_Z: f32 = 0.25;
-const PICKER_NODE_FILL_Z: f32 = 0.26;
-const PICKER_NODE_LINES_Z: f32 = 0.27;
 const CURSOR_Z: f32 = 0.3;
 
-fn draw_game(mut painter: ShapePainter, state: &GameState) {
-    for (a, b, c, color) in state.puzzle.triangles() {
+fn draw_game(mut painter: ShapePainter, text: &mut TextPainter, app: &VertexApp) {
+    for (a, b, c, color) in app.puzzle.triangles() {
         draw_triangle(&mut painter, a, b, c, TRIANGLE_Z, color);
     }
 
-    let complete = state.puzzle.is_complete();
+    let complete = app.puzzle.is_complete();
 
-    for (a, b, e) in state.puzzle.edges() {
+    for (a, b, e) in app.puzzle.edges() {
         let z = if e.is_visible {
             ACTIVE_EDGE_Z
         } else {
@@ -227,7 +189,7 @@ fn draw_game(mut painter: ShapePainter, state: &GameState) {
         }
     }
 
-    for v in state.puzzle.vertices() {
+    for v in app.puzzle.vertices() {
         if v.marker_radius.actual < 1.0 {
             continue;
         }
@@ -260,21 +222,17 @@ fn draw_game(mut painter: ShapePainter, state: &GameState) {
         }
     }
 
-    if let Some(p) = state.mouse_pos {
+    if let Some(p) = app.mouse_pos {
         draw_circle(&mut painter, p, CURSOR_Z, 5.0, GRAY.with_alpha(0.3));
     }
 
-    draw_cursor_line(&mut painter, &state.puzzle);
+    draw_cursor_line(&mut painter, &app.puzzle);
 
-    if state.is_snapping {
-        draw_snap_grid(&mut painter, &state.puzzle, state.mouse_pos);
+    if app.is_snapping {
+        draw_snap_grid(&mut painter, &app.puzzle, app.mouse_pos);
     }
 
-    draw_color_picker(&mut painter, &state.color_picker);
-
-    if let Some(c) = state.color_picker.selected_color() {
-        draw_circle(&mut painter, Vec2::ZERO, CURSOR_Z, 100.0, c)
-    }
+    app.draw(&mut painter, text);
 }
 
 fn draw_cursor_line(painter: &mut ShapePainter, puzzle: &Puzzle) -> Option<()> {
@@ -282,70 +240,4 @@ fn draw_cursor_line(painter: &mut ShapePainter, puzzle: &Puzzle) -> Option<()> {
     let start = puzzle.vertex_n(line.0)?;
     draw_line(painter, start.pos, line.1, ACTIVE_LINE_Z, 3.0, ORANGE);
     Some(())
-}
-
-fn draw_snap_grid(painter: &mut ShapePainter, puzzle: &Puzzle, pos: Option<Vec2>) {
-    let r = 200.0;
-    let color = LIGHT_GRAY;
-    let thickness = 1.0;
-    for v in puzzle.vertices() {
-        let up = v.pos + Vec2::Y * r;
-        let down = v.pos - Vec2::Y * r;
-        let right = v.pos + Vec2::X * r;
-        let left = v.pos - Vec2::X * r;
-        draw_line(painter, left, right, SNAP_GRID_Z, thickness, color);
-        draw_line(painter, up, down, SNAP_GRID_Z, thickness, color);
-
-        if let Some(p) = pos {
-            if v.pos.distance(p) > r {
-                continue;
-            }
-            let u = p.with_x(v.pos.x);
-            let v = p.with_y(v.pos.y);
-            draw_circle(painter, u, SNAP_GRID_Z, 3.0, RED);
-            draw_circle(painter, v, SNAP_GRID_Z, 3.0, RED);
-        }
-    }
-}
-
-fn draw_color_picker(painter: &mut ShapePainter, picker: &ColorPicker) {
-    let alpha = picker.alpha();
-    let r1 = picker.inner_radius();
-    let r2 = picker.middle_radius();
-    let r3 = picker.outer_radius();
-    let p = picker.center();
-    let t = 3.0;
-
-    fill_ring(painter, p, PICKER_FILL_Z, r1, r2, WHITE.with_alpha(alpha));
-    fill_ring(painter, p, PICKER_FILL_Z, r2, r3, WHITE.with_alpha(alpha));
-    draw_hollow_circle(painter, p, PICKER_LINES_Z, r1, t, BLACK.with_alpha(alpha));
-    draw_hollow_circle(painter, p, PICKER_LINES_Z, r2, t, BLACK.with_alpha(alpha));
-    draw_hollow_circle(painter, p, PICKER_LINES_Z, r3, t, BLACK.with_alpha(alpha));
-
-    for node in picker.samplers() {
-        if node.radius.actual < 2.0 {
-            continue;
-        }
-
-        draw_circle(
-            painter,
-            node.pos,
-            PICKER_NODE_FILL_Z,
-            node.radius.actual,
-            node.color.with_alpha(alpha),
-        );
-        draw_hollow_circle(
-            painter,
-            node.pos,
-            PICKER_NODE_LINES_Z,
-            node.radius.actual,
-            3.0,
-            BLACK.with_alpha(alpha),
-        );
-    }
-
-    if let Some(c) = picker.preview_color() {
-        draw_circle(painter, p, PICKER_FILL_Z, r1 * 0.8, c);
-        draw_hollow_circle(painter, p, PICKER_LINES_Z, r1 * 0.8, 3.0, BLACK);
-    }
 }

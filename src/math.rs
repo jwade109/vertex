@@ -1,4 +1,5 @@
 pub use bevy::math::Vec2;
+pub use bevy::math::Vec3;
 
 use rand::Rng;
 
