@@ -12,6 +12,7 @@ pub struct VertexApp {
     pub puzzle: Puzzle,
     pub color_picker: ColorPicker,
     pub is_snapping: bool,
+    pub draw_hidden_edges: bool,
     pub buttons: Vec<Box<dyn UiElement>>,
 }
 
@@ -40,6 +41,7 @@ impl VertexApp {
             puzzle: Puzzle::new(),
             color_picker: ColorPicker::new(),
             is_snapping: false,
+            draw_hidden_edges: true,
             buttons,
         }
     }

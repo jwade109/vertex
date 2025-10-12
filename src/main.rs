@@ -3,9 +3,11 @@ mod button;
 mod color_picker;
 mod drawing;
 mod edge;
+mod file_open_system;
 mod lpf;
 mod math;
 mod puzzle;
+mod reference_image;
 mod take_once;
 mod text;
 mod triangle;
@@ -15,20 +17,29 @@ mod window;
 
 use crate::app::*;
 use crate::drawing::*;
+use crate::file_open_system::*;
 use crate::math::*;
+use crate::reference_image::*;
 use crate::take_once::TakeOnce;
 use crate::text::*;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
-use bevy_vector_shapes::prelude::*;
+use bevy_egui::{egui, EguiContexts, EguiPlugin, EguiPrimaryContextPass};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins {})
+        .add_plugins(EguiPlugin::default())
         .add_plugins(Shape2dPlugin::default())
+        .add_plugins(FilePlugin)
+        .add_plugins(ReferenceImagePlugin)
         .add_systems(Startup, startup)
         .add_systems(FixedUpdate, on_fixed_tick)
-        .add_systems(Update, (on_input_tick, on_render_tick, text_system).chain())
+        .add_systems(
+            Update,
+            (on_input_tick, on_render_tick, text_system, on_load_puzzle).chain(),
+        )
+        .add_systems(EguiPrimaryContextPass, debug_ui_system)
         .run();
 }
 
@@ -43,11 +54,67 @@ fn on_fixed_tick(mut app: ResMut<VertexApp>) {
     app.step()
 }
 
-// fn debug_ui_system(mut contexts: EguiContexts) {
-//     egui::Window::new("Hello").show(contexts.ctx_mut(), |ui| {
-//         ui.label("world");
-//     });
-// }
+fn debug_ui_system(mut contexts: EguiContexts, mut commands: Commands, mut app: ResMut<VertexApp>) {
+    egui::Window::new("Hello").show(contexts.ctx_mut().unwrap(), |ui| {
+        let x = ui.style_mut();
+
+        x.spacing.item_spacing.y = 10.0;
+        x.spacing.button_padding.x = 5.0;
+        x.spacing.button_padding.y = 5.0;
+        x.visuals.dark_mode = false;
+        for x in &mut x.text_styles {
+            x.1.size *= 1.5;
+        }
+
+        if ui.button("Open Puzzle").clicked() {
+            commands.write_message(FileMessage::OpenFile(FileType::Puzzle));
+        }
+
+        if ui.button("Open Image").clicked() {
+            commands.write_message(FileMessage::OpenFile(FileType::ReferenceImage));
+        }
+
+        if ui.button("Complete").clicked() {
+            app.puzzle.complete();
+        }
+
+        if ui.button("Decomplete").clicked() {
+            app.puzzle.decomplete();
+        }
+
+        if ui.button("Randomize").clicked() {
+            app.puzzle.randomize();
+        }
+
+        if ui.button("Clear").clicked() {
+            app.puzzle = Puzzle::empty();
+        }
+
+        if ui.button("Save to File").clicked() {
+            println!("Saving to file");
+            _ = dbg!(puzzle_to_file(&app.puzzle, "puzzle.txt"));
+        }
+
+        ui.spacing();
+
+        ui.checkbox(&mut app.is_snapping, "Snapping");
+        ui.checkbox(&mut app.draw_hidden_edges, "Hidden Edges");
+    });
+}
+
+fn on_load_puzzle(mut app: ResMut<VertexApp>, mut msg: MessageReader<FileMessage>) {
+    for msg in msg.read() {
+        let path = if let FileMessage::Opened(FileType::Puzzle, path) = msg {
+            path
+        } else {
+            continue;
+        };
+
+        if let Ok(p) = puzzle_from_file(&path) {
+            app.puzzle = p;
+        }
+    }
+}
 
 fn on_input_tick(
     keys: Res<ButtonInput<KeyCode>>,
@@ -67,32 +134,6 @@ fn on_input_tick(
             app.puzzle.add_point(p, true);
         }
     }
-
-    if keys.just_pressed(KeyCode::KeyC) {
-        app.puzzle.complete();
-    }
-
-    if keys.just_pressed(KeyCode::KeyR) {
-        app.puzzle.randomize();
-    }
-
-    if keys.just_pressed(KeyCode::KeyL) {
-        app.puzzle = Puzzle::empty();
-    }
-
-    if keys.pressed(KeyCode::ControlLeft) && keys.just_pressed(KeyCode::KeyS) {
-        println!("Saving to file");
-        _ = dbg!(puzzle_to_file(&app.puzzle, "puzzle.txt"));
-    }
-
-    if keys.pressed(KeyCode::ControlLeft) && keys.just_pressed(KeyCode::KeyO) {
-        println!("Opening puzzle file");
-        if let Ok(p) = puzzle_from_file("puzzle.txt") {
-            app.puzzle = p;
-        }
-    }
-
-    app.is_snapping = keys.pressed(KeyCode::ShiftLeft);
 
     // mousebutton presses
     if mouse.just_pressed(MouseButton::Left) {
@@ -147,7 +188,7 @@ fn draw_game(mut painter: ShapePainter, text: &mut TextPainter, app: &VertexApp)
             let r = v.lerp(c, e.length_animation.actual);
             draw_line(&mut painter, v, r, z, e.thickness_animation.actual, BLACK);
         }
-        if !complete {
+        if !complete && app.draw_hidden_edges {
             draw_line(
                 &mut painter,
                 a.pos,

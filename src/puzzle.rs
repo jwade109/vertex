@@ -8,6 +8,7 @@ use bevy::prelude::*;
 use rand::seq::IndexedRandom;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 const CLICK_TARGET_SIZE_PIXELS: f32 = 50.0;
 
@@ -52,6 +53,12 @@ impl Puzzle {
     pub fn complete(&mut self) {
         for (_, e) in &mut self.edges {
             e.is_visible = true;
+        }
+    }
+
+    pub fn decomplete(&mut self) {
+        for (_, e) in &mut self.edges {
+            e.is_visible = false;
         }
     }
 
@@ -460,7 +467,10 @@ pub fn puzzle_to_file(puzzle: &Puzzle, filepath: &str) -> Result<(), Box<dyn std
     Ok(())
 }
 
-pub fn puzzle_from_file(filepath: &str) -> Result<Puzzle, Box<dyn std::error::Error>> {
+pub fn puzzle_from_file(
+    filepath: impl Into<PathBuf>,
+) -> Result<Puzzle, Box<dyn std::error::Error>> {
+    let filepath = filepath.into();
     let s = std::fs::read_to_string(filepath)?;
     let repr: PuzzleRepr = serde_yaml::from_str(&s)?;
     Ok(Puzzle::from(repr))
