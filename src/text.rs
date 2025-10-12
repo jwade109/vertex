@@ -30,7 +30,7 @@ impl TextPainter {
             fontsize: 144.0,
             color: BLACK,
             height: 10.0,
-            anchor: Anchor::Center,
+            anchor: Anchor::CENTER,
             text: Vec::new(),
         }
     }
@@ -92,12 +92,11 @@ pub fn text_system(
     let font = asset_server.load("EBGaramond-Medium.ttf");
 
     for tl in tp.unpack() {
-        let label = bevy::text::Text2d::new(tl.text.clone());
-        let color = bevy::text::TextColor(tl.color.into());
-        let fontsize = bevy::text::TextFont::from_font_size(tl.height).with_font(font.clone());
+        let label = Text2d::new(tl.text.clone());
+        let color = TextColor(tl.color.into());
+        let fontsize = TextFont::from_font_size(tl.height).with_font(font.clone());
         let scale = 1.0;
-        let transform =
-            bevy::prelude::Transform::from_scale(Vec3::splat(scale)).with_translation(tl.pos);
+        let transform = Transform::from_scale(Vec3::splat(scale)).with_translation(tl.pos);
         commands.spawn((label, color, transform, fontsize, tl.anchor, TextLabelComp));
     }
 }

@@ -18,9 +18,9 @@ use crate::drawing::*;
 use crate::math::*;
 use crate::take_once::TakeOnce;
 use crate::text::*;
-use bevy::input::gamepad::{Gamepad, GamepadEvent};
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
+use bevy_vector_shapes::prelude::*;
 
 fn main() {
     App::new()
@@ -43,33 +43,22 @@ fn on_fixed_tick(mut app: ResMut<VertexApp>) {
     app.step()
 }
 
+// fn debug_ui_system(mut contexts: EguiContexts) {
+//     egui::Window::new("Hello").show(contexts.ctx_mut(), |ui| {
+//         ui.label("world");
+//     });
+// }
+
 fn on_input_tick(
     keys: Res<ButtonInput<KeyCode>>,
     mouse: Res<ButtonInput<MouseButton>>,
     window: Single<&Window, With<PrimaryWindow>>,
-    gamepad: Query<&Gamepad>,
-    mut evr_gamepad: EventReader<GamepadEvent>,
     mut app: ResMut<VertexApp>,
 ) {
     if let Some(p) = window.cursor_position() {
         let dims = window.size();
         let x = p - dims / 2.0;
         app.mouse_pos = Some(x.with_y(-x.y))
-    } else if let Some(g) = gamepad.get_single().ok() {
-        let delta = g.left_stick() * 6.0;
-        app.mouse_pos = Some(app.mouse_pos.unwrap_or(Vec2::ZERO) + delta);
-
-        if g.just_pressed(GamepadButton::South) {
-            app.on_left_mouse_press();
-        }
-
-        if g.just_released(GamepadButton::South) {
-            app.on_left_mouse_release()
-        }
-
-        if g.just_pressed(GamepadButton::East) {
-            app.on_right_mouse_press();
-        }
     }
 
     // keyboard presses
@@ -120,25 +109,6 @@ fn on_input_tick(
 
     if mouse.just_released(MouseButton::Right) {
         app.on_right_mouse_release();
-    }
-
-    // gamepad events
-    for e in evr_gamepad.read() {
-        match e {
-            GamepadEvent::Axis(axis) => {
-                let delta = match axis.axis {
-                    GamepadAxis::LeftStickX => Vec2::X * axis.value,
-                    GamepadAxis::LeftStickY => Vec2::Y * axis.value,
-                    _ => continue,
-                };
-
-                dbg!(delta);
-
-                app.mouse_pos = Some(app.mouse_pos.unwrap_or(Vec2::ZERO) + delta);
-            }
-            GamepadEvent::Button(b) => _ = dbg!(b),
-            _ => _ = dbg!(e),
-        }
     }
 
     let p = app.mouse_pos;
