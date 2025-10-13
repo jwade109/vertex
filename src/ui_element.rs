@@ -1,5 +1,5 @@
 use crate::math::Vec2;
-use crate::take_once::TakeOnce;
+use crate::take_once::*;
 pub use crate::text::TextPainter;
 pub use bevy::color::palettes::css::*;
 pub use bevy_vector_shapes::prelude::ShapePainter;

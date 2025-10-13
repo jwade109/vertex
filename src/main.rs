@@ -23,7 +23,7 @@ use crate::editor_ui::EguiEditor;
 use crate::file_open_system::*;
 use crate::math::*;
 use crate::reference_image::*;
-use crate::take_once::TakeOnce;
+use crate::take_once::*;
 use crate::text::*;
 use bevy::asset::UnapprovedPathMode;
 use bevy::prelude::*;

@@ -1,6 +1,6 @@
 use crate::edge::*;
 use crate::math::*;
-use crate::take_once::TakeOnce;
+use crate::take_once::*;
 use crate::triangle::*;
 use crate::vertex::*;
 use bevy::color::palettes::basic::*;

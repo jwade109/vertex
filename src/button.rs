@@ -1,8 +1,9 @@
 use crate::app::VertexApp;
 use crate::math::*;
-use crate::take_once::TakeOnce;
+use crate::take_once::*;
 use crate::ui_element::*;
 use bevy::color::Srgba;
+use bevy::input::mouse::MouseButtonInput;
 use bevy::prelude::*;
 use bevy_vector_shapes::prelude::*;
 
@@ -31,22 +32,20 @@ impl Button {
             is_clicked: false,
         }
     }
-}
 
-impl UiElement for Button {
-    fn contains(&self, p: Vec2) -> bool {
+    pub fn contains(&self, p: Vec2) -> bool {
         let p = p - self.pos;
         0.0 <= p.x && p.x <= self.dims.x && 0.0 <= p.y && p.y <= self.dims.y
     }
 
-    fn step(&mut self) {
+    pub fn step(&mut self) {
         self.hover_animation.target = self.is_hover as u8 as f32;
         self.hover_animation.step();
         self.clicked_animation.target = self.is_clicked() as u8 as f32;
         self.clicked_animation.step();
     }
 
-    fn set_cursor_position(&mut self, t: &mut TakeOnce<Vec2>) {
+    pub fn set_cursor_position(&mut self, t: &mut TakeOnce<Vec2>) {
         let p = t.peek();
         if let Some(p) = p {
             self.is_hover = self.contains(*p);
@@ -58,34 +57,35 @@ impl UiElement for Button {
         }
     }
 
-    fn is_hovered(&self) -> bool {
+    pub fn is_hovered(&self) -> bool {
         self.is_hover
     }
 
-    fn on_left_click_down(&mut self, t: &mut TakeOnce<Vec2>) {
+    pub fn on_input(&mut self, input: &InputMessage) {
+        if self.is_hovered() && input.is_left_pressed() {
+            self.on_left_click_pressed();
+        } else if self.is_clicked() && input.is_left_released() {
+            self.on_left_click_release();
+        }
+    }
+
+    pub fn on_left_click_pressed(&mut self) {
         if self.is_hover {
-            if let Some(p) = t.peek() {
-                self.is_clicked = self.contains(*p);
-                if self.is_clicked {
-                    t.take();
-                }
-            }
+            self.is_clicked = true;
         } else {
             self.is_clicked = false;
         }
     }
 
-    fn on_left_click_release(&mut self, t: &mut TakeOnce<()>) {
-        if let Some(_) = t.peek() {
-            self.is_clicked = false;
-        }
+    pub fn on_left_click_release(&mut self) {
+        self.is_clicked = false;
     }
 
-    fn is_clicked(&self) -> bool {
+    pub fn is_clicked(&self) -> bool {
         self.is_clicked
     }
 
-    fn draw(&self, painter: &mut ShapePainter, text: &mut TextPainter) {
+    pub fn draw(&self, painter: &mut ShapePainter, text: &mut TextPainter) {
         painter.reset();
 
         let c1 = WHITE;
@@ -130,7 +130,20 @@ pub struct ButtonPlugin;
 impl Plugin for ButtonPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, startup)
-            .add_systems(Update, (draw_buttons, update_buttons, cursor_to_buttons));
+            .add_systems(
+                Update,
+                (
+                    draw_buttons,
+                    step_buttons,
+                    translate_cursor_moved,
+                    translate_cursor_entered,
+                    translate_cursor_left,
+                    translate_mouse_buttons,
+                    cursor_to_buttons,
+                    on_generic_input,
+                ),
+            )
+            .add_message::<InputMessage>();
     }
 }
 
@@ -157,7 +170,55 @@ fn draw_buttons(mut painter: ShapePainter, mut text: ResMut<TextPainter>, query:
     }
 }
 
-fn update_buttons(mut query: Query<&mut Button>) {
+fn translate_cursor_moved(
+    mut cursor: MessageReader<CursorMoved>,
+    mut out: MessageWriter<InputMessage>,
+) {
+    for event in cursor.read() {
+        let event = InputMessage::new(event.clone());
+        out.write(event);
+    }
+}
+
+fn translate_cursor_entered(
+    mut cursor: MessageReader<CursorEntered>,
+    mut out: MessageWriter<InputMessage>,
+) {
+    for event in cursor.read() {
+        let event = InputMessage::new(event.clone());
+        out.write(event);
+    }
+}
+
+fn translate_cursor_left(
+    mut cursor: MessageReader<CursorLeft>,
+    mut out: MessageWriter<InputMessage>,
+) {
+    for event in cursor.read() {
+        let event = InputMessage::new(event.clone());
+        out.write(event);
+    }
+}
+
+fn translate_mouse_buttons(
+    mut mouse: MessageReader<MouseButtonInput>,
+    mut out: MessageWriter<InputMessage>,
+) {
+    for event in mouse.read() {
+        let event = InputMessage::new(event.clone());
+        out.write(event);
+    }
+}
+
+fn on_generic_input(mut query: Query<&mut Button>, mut msg: MessageReader<InputMessage>) {
+    for input in msg.read() {
+        for mut button in &mut query {
+            button.on_input(input);
+        }
+    }
+}
+
+fn step_buttons(mut query: Query<&mut Button>) {
     for mut button in &mut query {
         button.step();
     }

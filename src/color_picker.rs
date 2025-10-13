@@ -1,6 +1,6 @@
 use crate::drawing::*;
 use crate::math::*;
-use crate::take_once::TakeOnce;
+use crate::take_once::*;
 use crate::ui_element::*;
 use bevy::color::*;
 use bevy::prelude::*;

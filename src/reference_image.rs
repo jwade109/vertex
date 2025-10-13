@@ -2,7 +2,7 @@ use crate::app::VertexApp;
 use crate::drawing::*;
 use crate::file_open_system::*;
 use crate::math::*;
-use crate::take_once::TakeOnce;
+use crate::take_once::*;
 use crate::text::TextPainter;
 use crate::ui_element::UiElement;
 use bevy::prelude::*;
