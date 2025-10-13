@@ -1,5 +1,6 @@
 use crate::app::VertexApp;
 use crate::math::*;
+use crate::reference_image::RefImageWindow;
 use crate::take_once::*;
 use crate::ui_element::*;
 use bevy::color::Srgba;
@@ -135,6 +136,7 @@ impl Plugin for ButtonPlugin {
                 (
                     draw_buttons,
                     step_buttons,
+                    step_windows,
                     translate_cursor_moved,
                     translate_cursor_entered,
                     translate_cursor_left,
@@ -210,10 +212,18 @@ fn translate_mouse_buttons(
     }
 }
 
-fn on_generic_input(mut query: Query<&mut Button>, mut msg: MessageReader<InputMessage>) {
+fn on_generic_input(
+    mut buttons: Query<&mut Button>,
+    mut images: Query<&mut RefImageWindow>,
+    mut msg: MessageReader<InputMessage>,
+) {
     for input in msg.read() {
-        for mut button in &mut query {
+        for mut button in &mut buttons {
             button.on_input(input);
+        }
+
+        for mut image in &mut images {
+            image.on_input(input)
         }
     }
 }
@@ -224,8 +234,23 @@ fn step_buttons(mut query: Query<&mut Button>) {
     }
 }
 
-fn cursor_to_buttons(app: Res<VertexApp>, mut query: Query<&mut Button>) {
-    for mut button in &mut query {
+fn step_windows(mut query: Query<&mut RefImageWindow>) {
+    for mut window in &mut query {
+        window.step();
+    }
+}
+
+fn cursor_to_buttons(
+    app: Res<VertexApp>,
+    mut buttons: Query<&mut Button>,
+    mut images: Query<&mut RefImageWindow>,
+) {
+    for mut button in &mut buttons {
+        let mut once = TakeOnce::from_option(app.mouse_pos);
+        button.set_cursor_position(&mut once);
+    }
+
+    for mut button in &mut images {
         let mut once = TakeOnce::from_option(app.mouse_pos);
         button.set_cursor_position(&mut once);
     }

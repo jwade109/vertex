@@ -50,6 +50,13 @@ impl InputMessage {
         self.should_propagate
     }
 
+    pub fn cursor_delta(&self) -> Option<Vec2> {
+        match &self.event {
+            InputEvent::Moved(m) => m.delta,
+            _ => None,
+        }
+    }
+
     pub fn is_left_released(&self) -> bool {
         match self.event() {
             InputEvent::MouseButton(i) => match (i.button, i.state) {

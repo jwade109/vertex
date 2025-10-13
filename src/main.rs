@@ -31,10 +31,14 @@ use bevy::window::PrimaryWindow;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(AssetPlugin {
-            unapproved_path_mode: UnapprovedPathMode::Allow,
-            ..default()
-        }))
+        .add_plugins(
+            DefaultPlugins
+                .set(AssetPlugin {
+                    unapproved_path_mode: UnapprovedPathMode::Allow,
+                    ..default()
+                })
+                // .set(ImagePlugin::default_nearest()),
+        )
         .add_plugins(Shape2dPlugin::default())
         .add_plugins(FilePlugin)
         .add_plugins(ButtonPlugin)

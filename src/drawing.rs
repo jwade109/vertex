@@ -19,7 +19,7 @@ pub fn fill_rect(painter: &mut ShapePainter, origin: Vec2, dims: Vec2, color: Sr
 
 pub fn draw_rect(painter: &mut ShapePainter, origin: Vec2, dims: Vec2, color: Srgba) {
     painter.reset();
-    painter.set_translation((origin + dims / 2.0).extend(0.28));
+    painter.set_translation((origin + dims / 2.0).extend(1000.0));
     painter.set_color(color);
     painter.hollow = true;
     painter.thickness = 2.0;
