@@ -84,29 +84,3 @@ pub fn draw_line(
     painter.set_translation(Vec2::ZERO.extend(z));
     painter.line(a.extend(0.0), b.extend(0.0));
 }
-
-const SNAP_GRID_Z: f32 = 0.08;
-
-pub fn draw_snap_grid(painter: &mut ShapePainter, puzzle: &Puzzle, pos: Option<Vec2>) {
-    let r = 200.0;
-    let color = LIGHT_GRAY;
-    let thickness = 1.0;
-    for v in puzzle.vertices() {
-        let up = v.pos + Vec2::Y * r;
-        let down = v.pos - Vec2::Y * r;
-        let right = v.pos + Vec2::X * r;
-        let left = v.pos - Vec2::X * r;
-        draw_line(painter, left, right, SNAP_GRID_Z, thickness, color);
-        draw_line(painter, up, down, SNAP_GRID_Z, thickness, color);
-
-        if let Some(p) = pos {
-            if v.pos.distance(p) > r {
-                continue;
-            }
-            let u = p.with_x(v.pos.x);
-            let v = p.with_y(v.pos.y);
-            draw_circle(painter, u, SNAP_GRID_Z, 3.0, RED);
-            draw_circle(painter, v, SNAP_GRID_Z, 3.0, RED);
-        }
-    }
-}

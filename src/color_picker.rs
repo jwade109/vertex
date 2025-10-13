@@ -185,14 +185,12 @@ impl ColorPicker {
     pub fn samplers(&self) -> impl Iterator<Item = &SelectionNode> + use<'_> {
         self.nodes_with_id().map(|(_, n)| n)
     }
-}
 
-impl UiElement for ColorPicker {
-    fn contains(&self, _p: Vec2) -> bool {
+    pub fn contains(&self, _p: Vec2) -> bool {
         todo!()
     }
 
-    fn step(&mut self) {
+    pub fn step(&mut self) {
         self.inner_animation.target = self.is_open as u8 as f32;
         self.inner_animation.step();
         self.outer_animation.target = self.is_outer_open() as u8 as f32;
@@ -259,7 +257,7 @@ impl UiElement for ColorPicker {
         }
     }
 
-    fn set_cursor_position(&mut self, p: &mut TakeOnce<Vec2>) {
+    pub fn set_cursor_position(&mut self, p: &mut TakeOnce<Vec2>) {
         if !self.is_open {
             return;
         }
@@ -278,7 +276,7 @@ impl UiElement for ColorPicker {
         }
     }
 
-    fn draw(&self, painter: &mut ShapePainter, text: &mut TextPainter) {
+    pub fn draw(&self, painter: &mut ShapePainter, text: &mut TextPainter) {
         let alpha = self.alpha();
         let r1 = self.inner_radius();
         let r2 = self.middle_radius();

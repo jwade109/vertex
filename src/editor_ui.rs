@@ -60,7 +60,6 @@ fn editor_ui_system(
 
         ui.spacing();
 
-        ui.checkbox(&mut app.is_snapping, "Snapping");
         ui.checkbox(&mut app.draw_hidden_edges, "Hidden Edges");
         ui.add(egui::Slider::new(&mut app.ref_image_alpha, 0.05..=1.0));
         ui.add(egui::Slider::new(&mut app.triangle_alpha, 0.05..=1.0));

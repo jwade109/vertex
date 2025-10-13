@@ -3,6 +3,7 @@ mod button;
 mod color_picker;
 mod drawing;
 mod edge;
+mod editor_ui;
 mod file_open_system;
 mod math;
 mod puzzle;
@@ -12,14 +13,13 @@ mod text;
 mod triangle;
 mod ui_element;
 mod vertex;
-mod editor_ui;
 
 use std::path::PathBuf;
 
-use crate::editor_ui::EguiEditor;
 use crate::app::*;
 use crate::button::*;
 use crate::drawing::*;
+use crate::editor_ui::EguiEditor;
 use crate::file_open_system::*;
 use crate::math::*;
 use crate::reference_image::*;
@@ -149,7 +149,7 @@ const VERTEX_Z_2: f32 = 0.21;
 const ACTIVE_LINE_Z: f32 = 0.22;
 const CURSOR_Z: f32 = 0.3;
 
-fn draw_game(mut painter: ShapePainter, text: &mut TextPainter, app: &VertexApp) {
+fn draw_game(mut painter: ShapePainter, mut text: &mut TextPainter, app: &VertexApp) {
     for (a, b, c, color) in app.puzzle.triangles() {
         draw_triangle(
             &mut painter,
@@ -225,11 +225,7 @@ fn draw_game(mut painter: ShapePainter, text: &mut TextPainter, app: &VertexApp)
 
     draw_cursor_line(&mut painter, &app.puzzle);
 
-    if app.is_snapping {
-        draw_snap_grid(&mut painter, &app.puzzle, app.mouse_pos);
-    }
-
-    app.draw(&mut painter, text);
+    app.color_picker.draw(&mut painter, &mut text);
 }
 
 fn draw_cursor_line(painter: &mut ShapePainter, puzzle: &Puzzle) -> Option<()> {
