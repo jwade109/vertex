@@ -1,10 +1,10 @@
 use crate::drawing::*;
 use crate::math::*;
 use crate::take_once::*;
-use crate::ui_element::*;
 use bevy::color::*;
 use bevy::prelude::*;
 use indexmap::IndexMap;
+use crate::text::TextPainter;
 
 pub const PICKER_INNER_RADIUS: f32 = 100.0;
 pub const PICKER_MIDDLE_RADIUS: f32 = 180.0;
@@ -184,10 +184,6 @@ impl ColorPicker {
 
     pub fn samplers(&self) -> impl Iterator<Item = &SelectionNode> + use<'_> {
         self.nodes_with_id().map(|(_, n)| n)
-    }
-
-    pub fn contains(&self, _p: Vec2) -> bool {
-        todo!()
     }
 
     pub fn step(&mut self) {

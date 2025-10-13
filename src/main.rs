@@ -11,7 +11,6 @@ mod reference_image;
 mod take_once;
 mod text;
 mod triangle;
-mod ui_element;
 mod vertex;
 
 use std::path::PathBuf;
@@ -32,14 +31,13 @@ use bevy::window::PrimaryWindow;
 fn main() {
     App::new()
         .add_plugins(
-            DefaultPlugins
-                .set(AssetPlugin {
-                    unapproved_path_mode: UnapprovedPathMode::Allow,
-                    ..default()
-                })
-                // .set(ImagePlugin::default_nearest()),
+            DefaultPlugins.set(AssetPlugin {
+                unapproved_path_mode: UnapprovedPathMode::Allow,
+                ..default()
+            }), // .set(ImagePlugin::default_nearest()),
         )
         .add_plugins(Shape2dPlugin::default())
+        .add_plugins(bevy_framepace::FramepacePlugin)
         .add_plugins(FilePlugin)
         .add_plugins(ButtonPlugin)
         .add_plugins(ReferenceImagePlugin)

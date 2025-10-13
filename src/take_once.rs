@@ -42,19 +42,12 @@ impl InputMessage {
         &self.event
     }
 
-    pub fn propagate(&mut self, should_propagate: bool) {
-        self.should_propagate = should_propagate;
+    pub fn dont_propagate(&mut self) {
+        self.should_propagate = false;
     }
 
     pub fn should_propagate(&self) -> bool {
         self.should_propagate
-    }
-
-    pub fn cursor_delta(&self) -> Option<Vec2> {
-        match &self.event {
-            InputEvent::Moved(m) => m.delta,
-            _ => None,
-        }
     }
 
     pub fn is_left_released(&self) -> bool {

@@ -145,11 +145,13 @@ impl RefImageWindow {
         self.is_hover
     }
 
-    pub fn on_input(&mut self, input: &InputMessage) {
+    pub fn on_input(&mut self, input: &mut InputMessage) {
         if self.is_hovered() && input.is_left_pressed() {
             self.on_left_click_pressed();
+            input.dont_propagate();
         } else if self.is_clicked && input.is_left_released() {
             self.on_left_click_release();
+            input.dont_propagate();
         }
     }
 

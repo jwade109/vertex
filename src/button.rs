@@ -1,8 +1,8 @@
-use crate::app::VertexApp;
 use crate::math::*;
 use crate::reference_image::RefImageWindow;
 use crate::take_once::*;
-use crate::ui_element::*;
+use crate::text::TextPainter;
+use bevy::color::palettes::css::*;
 use bevy::color::Srgba;
 use bevy::input::mouse::MouseButtonInput;
 use bevy::prelude::*;
@@ -62,11 +62,13 @@ impl Button {
         self.is_hover
     }
 
-    pub fn on_input(&mut self, input: &InputMessage) {
+    pub fn on_input(&mut self, input: &mut InputMessage) {
         if self.is_hovered() && input.is_left_pressed() {
             self.on_left_click_pressed();
+            input.dont_propagate();
         } else if self.is_clicked() && input.is_left_released() {
             self.on_left_click_release();
+            input.dont_propagate();
         }
     }
 
@@ -217,13 +219,19 @@ fn on_generic_input(
     mut images: Query<&mut RefImageWindow>,
     mut msg: MessageReader<InputMessage>,
 ) {
-    for input in msg.read() {
+    'outer: for input in msg.read() {
+        let mut input = input.clone();
         for mut button in &mut buttons {
-            button.on_input(input);
+            button.on_input(&mut input);
+            if !input.should_propagate() {
+                continue 'outer;
+            }
         }
-
         for mut image in &mut images {
-            image.on_input(input)
+            image.on_input(&mut input);
+            if !input.should_propagate() {
+                continue 'outer;
+            }
         }
     }
 }
@@ -241,17 +249,25 @@ fn step_windows(mut query: Query<&mut RefImageWindow>) {
 }
 
 fn cursor_to_buttons(
-    app: Res<VertexApp>,
     mut buttons: Query<&mut Button>,
     mut images: Query<&mut RefImageWindow>,
+    window: Single<&Window>,
 ) {
+    let pos = if let Some(p) = window.cursor_position() {
+        let dims = window.size();
+        let x = p - dims / 2.0;
+        x.with_y(-x.y)
+    } else {
+        return;
+    };
+
     for mut button in &mut buttons {
-        let mut once = TakeOnce::from_option(app.mouse_pos);
+        let mut once = TakeOnce::new(pos);
         button.set_cursor_position(&mut once);
     }
 
     for mut button in &mut images {
-        let mut once = TakeOnce::from_option(app.mouse_pos);
+        let mut once = TakeOnce::new(pos);
         button.set_cursor_position(&mut once);
     }
 }
