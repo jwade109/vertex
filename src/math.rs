@@ -11,7 +11,7 @@ pub fn random(a: f32, b: f32) -> f32 {
     rand::rng().random_range(a..=b)
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Lpf {
     pub target: f32,
     pub actual: f32,

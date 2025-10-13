@@ -3,13 +3,14 @@ use crate::math::*;
 use crate::take_once::TakeOnce;
 use crate::ui_element::*;
 use bevy::color::*;
-use indexmap::IndexMap;
 use bevy::prelude::*;
+use indexmap::IndexMap;
 
 pub const PICKER_INNER_RADIUS: f32 = 100.0;
 pub const PICKER_MIDDLE_RADIUS: f32 = 180.0;
 pub const PICKER_OUTER_BAND_WIDTH: f32 = 80.0;
 
+#[derive(Component, Clone)]
 pub struct ColorPicker {
     is_open: bool,
     pos: Vec2,
@@ -22,6 +23,7 @@ pub struct ColorPicker {
     selected_color: Option<Srgba>,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct SelectionNode {
     pub color: Srgba,
     pub pos: Vec2,
@@ -38,6 +40,7 @@ impl SelectionNode {
     }
 }
 
+#[derive(Debug, Clone)]
 struct ColorSelection {
     node: SelectionNode,
     secondary: IndexMap<usize, SelectionNode>,
@@ -189,7 +192,7 @@ impl UiElement for ColorPicker {
         todo!()
     }
 
-    fn step(&mut self, _commands: &mut Commands) {
+    fn step(&mut self) {
         self.inner_animation.target = self.is_open as u8 as f32;
         self.inner_animation.step();
         self.outer_animation.target = self.is_outer_open() as u8 as f32;
@@ -254,10 +257,6 @@ impl UiElement for ColorPicker {
         } else {
             self.preview_color = None;
         }
-    }
-
-    fn id(&self) -> &str {
-        "Color Picker"
     }
 
     fn set_cursor_position(&mut self, p: &mut TakeOnce<Vec2>) {

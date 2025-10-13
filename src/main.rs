@@ -12,10 +12,13 @@ mod text;
 mod triangle;
 mod ui_element;
 mod vertex;
+mod editor_ui;
 
 use std::path::PathBuf;
 
+use crate::editor_ui::EguiEditor;
 use crate::app::*;
+use crate::button::*;
 use crate::drawing::*;
 use crate::file_open_system::*;
 use crate::math::*;
@@ -25,7 +28,6 @@ use crate::text::*;
 use bevy::asset::UnapprovedPathMode;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
-use bevy_egui::{egui, EguiContexts, EguiPlugin, EguiPrimaryContextPass};
 
 fn main() {
     App::new()
@@ -33,17 +35,17 @@ fn main() {
             unapproved_path_mode: UnapprovedPathMode::Allow,
             ..default()
         }))
-        .add_plugins(EguiPlugin::default())
         .add_plugins(Shape2dPlugin::default())
         .add_plugins(FilePlugin)
+        .add_plugins(ButtonPlugin)
         .add_plugins(ReferenceImagePlugin)
+        .add_plugins(EguiEditor)
         .add_systems(Startup, startup)
         .add_systems(FixedUpdate, on_fixed_tick)
         .add_systems(
             Update,
             (on_input_tick, on_render_tick, text_system, on_load_puzzle).chain(),
         )
-        .add_systems(EguiPrimaryContextPass, debug_ui_system)
         .run();
 }
 
@@ -72,58 +74,8 @@ fn startup(mut commands: Commands, mut _windows: Query<&mut Window, With<Primary
     // }
 }
 
-fn on_fixed_tick(mut app: ResMut<VertexApp>, mut commands: Commands) {
-    app.step(&mut commands);
-}
-
-fn debug_ui_system(mut contexts: EguiContexts, mut commands: Commands, mut app: ResMut<VertexApp>) {
-    egui::Window::new("Hello").show(contexts.ctx_mut().unwrap(), |ui| {
-        let x = ui.style_mut();
-
-        x.spacing.item_spacing.y = 10.0;
-        x.spacing.button_padding.x = 5.0;
-        x.spacing.button_padding.y = 5.0;
-        x.visuals.dark_mode = false;
-        for x in &mut x.text_styles {
-            x.1.size *= 1.5;
-        }
-
-        if ui.button("Open Puzzle").clicked() {
-            commands.write_message(FileMessage::OpenFile(FileType::Puzzle));
-        }
-
-        if ui.button("Open Image").clicked() {
-            commands.write_message(FileMessage::OpenFile(FileType::ReferenceImage));
-        }
-
-        if ui.button("Complete").clicked() {
-            app.puzzle.complete();
-        }
-
-        if ui.button("Decomplete").clicked() {
-            app.puzzle.decomplete();
-        }
-
-        if ui.button("Randomize").clicked() {
-            app.puzzle.randomize();
-        }
-
-        if ui.button("Clear").clicked() {
-            app.puzzle = Puzzle::empty();
-        }
-
-        if ui.button("Save to File").clicked() {
-            println!("Saving to file");
-            _ = dbg!(puzzle_to_file(&app.puzzle, "puzzle.txt"));
-        }
-
-        ui.spacing();
-
-        ui.checkbox(&mut app.is_snapping, "Snapping");
-        ui.checkbox(&mut app.draw_hidden_edges, "Hidden Edges");
-        ui.add(egui::Slider::new(&mut app.ref_image_alpha, 0.05..=1.0));
-        ui.add(egui::Slider::new(&mut app.triangle_alpha, 0.05..=1.0));
-    });
+fn on_fixed_tick(mut app: ResMut<VertexApp>) {
+    app.step();
 }
 
 fn on_load_puzzle(mut app: ResMut<VertexApp>, mut msg: MessageReader<FileMessage>) {

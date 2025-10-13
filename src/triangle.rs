@@ -1,7 +1,7 @@
 use crate::math::*;
-use bevy::color::Srgba;
+use bevy::prelude::*;
 
-#[derive(Clone)]
+#[derive(Component, Debug, Clone, Copy)]
 pub struct Triangle {
     pub color: Srgba,
     pub a: usize,

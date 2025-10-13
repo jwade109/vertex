@@ -1,3 +1,4 @@
+use crate::app::VertexApp;
 use crate::math::*;
 use crate::take_once::TakeOnce;
 use crate::ui_element::*;
@@ -5,6 +6,7 @@ use bevy::color::Srgba;
 use bevy::prelude::*;
 use bevy_vector_shapes::prelude::*;
 
+#[derive(Component, Debug, Clone)]
 pub struct Button {
     pub text: String,
     pub pos: Vec2,
@@ -37,15 +39,11 @@ impl UiElement for Button {
         0.0 <= p.x && p.x <= self.dims.x && 0.0 <= p.y && p.y <= self.dims.y
     }
 
-    fn step(&mut self, _commands: &mut Commands) {
+    fn step(&mut self) {
         self.hover_animation.target = self.is_hover as u8 as f32;
         self.hover_animation.step();
         self.clicked_animation.target = self.is_clicked() as u8 as f32;
         self.clicked_animation.step();
-    }
-
-    fn id(&self) -> &str {
-        "Button"
     }
 
     fn set_cursor_position(&mut self, t: &mut TakeOnce<Vec2>) {
@@ -92,12 +90,14 @@ impl UiElement for Button {
 
         let c1 = WHITE;
 
+        let offset = Vec2::splat(5.0);
+
         painter.set_color(c1);
         painter.set_translation((self.pos + self.dims / 2.0).extend(0.28));
         painter.rect(self.dims);
 
         painter.set_color(LIGHT_GRAY);
-        painter.set_translation((self.pos + self.dims / 2.0 - Vec2::splat(5.0)).extend(0.03));
+        painter.set_translation((self.pos + self.dims / 2.0 - offset).extend(0.03));
         painter.rect(self.dims);
 
         let c2 = self.color.with_alpha(0.7);
@@ -122,5 +122,50 @@ impl UiElement for Button {
         text.set_height(self.dims.y * 0.7);
         text.set_color(BLACK.with_alpha(1.0));
         text.text(self.text.clone());
+    }
+}
+
+pub struct ButtonPlugin;
+
+impl Plugin for ButtonPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(Startup, startup)
+            .add_systems(Update, (draw_buttons, update_buttons, cursor_to_buttons));
+    }
+}
+
+fn startup(mut commands: Commands) {
+    let button_text = [
+        "Load",
+        "Save",
+        "Picker",
+        "Normalize",
+        "Whatever",
+        "Whocares",
+    ];
+
+    for (i, text) in button_text.into_iter().enumerate() {
+        let pos = Vec2::new(-900.0, i as f32 * 60.0);
+        let button = Button::new(text, pos);
+        commands.spawn(button);
+    }
+}
+
+fn draw_buttons(mut painter: ShapePainter, mut text: ResMut<TextPainter>, query: Query<&Button>) {
+    for button in &query {
+        button.draw(&mut painter, &mut text);
+    }
+}
+
+fn update_buttons(mut query: Query<&mut Button>) {
+    for mut button in &mut query {
+        button.step();
+    }
+}
+
+fn cursor_to_buttons(app: Res<VertexApp>, mut query: Query<&mut Button>) {
+    for mut button in &mut query {
+        let mut once = TakeOnce::from_option(app.mouse_pos);
+        button.set_cursor_position(&mut once);
     }
 }
