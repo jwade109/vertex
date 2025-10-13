@@ -7,6 +7,7 @@ use bevy::sprite::Anchor;
 pub struct TextLabel {
     text: String,
     pos: Vec3,
+    #[allow(unused)]
     fontsize: f32,
     height: f32,
     color: Srgba,
@@ -35,6 +36,7 @@ impl TextPainter {
         }
     }
 
+    #[allow(unused)]
     pub fn reset(&mut self) {
         self.pos = Vec3::ZERO;
         self.fontsize = 144.0;
@@ -49,6 +51,7 @@ impl TextPainter {
         self.color = color;
     }
 
+    #[allow(unused)]
     pub fn set_font_size(&mut self, fontsize: f32) {
         self.fontsize = fontsize;
     }

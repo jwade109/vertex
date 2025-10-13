@@ -13,6 +13,8 @@ pub struct VertexApp {
     pub color_picker: ColorPicker,
     pub is_snapping: bool,
     pub draw_hidden_edges: bool,
+    pub ref_image_alpha: f32,
+    pub triangle_alpha: f32,
     pub buttons: Vec<Box<dyn UiElement>>,
 }
 
@@ -27,7 +29,7 @@ impl VertexApp {
             "Whocares",
         ];
 
-        let buttons = button_text
+        let buttons: Vec<Box<dyn UiElement>> = button_text
             .into_iter()
             .enumerate()
             .map(|(i, s)| -> Box<dyn UiElement> {
@@ -42,16 +44,18 @@ impl VertexApp {
             color_picker: ColorPicker::new(),
             is_snapping: false,
             draw_hidden_edges: true,
+            ref_image_alpha: 0.4,
+            triangle_alpha: 0.8,
             buttons,
         }
     }
 
-    pub fn step(&mut self) {
+    pub fn step(&mut self, commands: &mut Commands) {
         for button in &mut self.buttons {
-            button.step();
+            button.step(commands);
         }
         self.puzzle.step();
-        self.color_picker.step();
+        self.color_picker.step(commands);
     }
 
     pub fn set_cursor_position(&mut self, mut p: TakeOnce<Vec2>) {
@@ -98,8 +102,18 @@ impl VertexApp {
     }
 
     pub fn draw(&self, painter: &mut ShapePainter, text: &mut TextPainter) {
+        let mut y = 0.0;
         for button in self.buttons.iter().rev() {
             button.draw(painter, text);
+            text.set_position(Vec3::new(0.0, y, 100.0));
+            let s = format!(
+                "{} {} {}",
+                button.id(),
+                button.is_hovered(),
+                button.z_index()
+            );
+            text.text(s);
+            y += 20.0;
         }
         self.color_picker.draw(painter, text);
     }

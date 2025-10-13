@@ -1,4 +1,4 @@
-use crate::lpf::*;
+use crate::math::*;
 
 pub struct Edge {
     pub a: usize,

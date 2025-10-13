@@ -1,10 +1,10 @@
 use crate::drawing::*;
-use crate::lpf::Lpf;
 use crate::math::*;
 use crate::take_once::TakeOnce;
 use crate::ui_element::*;
 use bevy::color::*;
 use indexmap::IndexMap;
+use bevy::prelude::*;
 
 pub const PICKER_INNER_RADIUS: f32 = 100.0;
 pub const PICKER_MIDDLE_RADIUS: f32 = 180.0;
@@ -189,7 +189,7 @@ impl UiElement for ColorPicker {
         todo!()
     }
 
-    fn step(&mut self) {
+    fn step(&mut self, _commands: &mut Commands) {
         self.inner_animation.target = self.is_open as u8 as f32;
         self.inner_animation.step();
         self.outer_animation.target = self.is_outer_open() as u8 as f32;
@@ -254,6 +254,10 @@ impl UiElement for ColorPicker {
         } else {
             self.preview_color = None;
         }
+    }
+
+    fn id(&self) -> &str {
+        "Color Picker"
     }
 
     fn set_cursor_position(&mut self, p: &mut TakeOnce<Vec2>) {

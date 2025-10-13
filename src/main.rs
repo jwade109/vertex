@@ -4,7 +4,6 @@ mod color_picker;
 mod drawing;
 mod edge;
 mod file_open_system;
-mod lpf;
 mod math;
 mod puzzle;
 mod reference_image;
@@ -13,7 +12,8 @@ mod text;
 mod triangle;
 mod ui_element;
 mod vertex;
-mod window;
+
+use std::path::PathBuf;
 
 use crate::app::*;
 use crate::drawing::*;
@@ -22,13 +22,17 @@ use crate::math::*;
 use crate::reference_image::*;
 use crate::take_once::TakeOnce;
 use crate::text::*;
+use bevy::asset::UnapprovedPathMode;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy_egui::{egui, EguiContexts, EguiPlugin, EguiPrimaryContextPass};
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins {})
+        .add_plugins(DefaultPlugins.set(AssetPlugin {
+            unapproved_path_mode: UnapprovedPathMode::Allow,
+            ..default()
+        }))
         .add_plugins(EguiPlugin::default())
         .add_plugins(Shape2dPlugin::default())
         .add_plugins(FilePlugin)
@@ -43,15 +47,33 @@ fn main() {
         .run();
 }
 
-fn startup(mut commands: Commands) {
+fn startup(mut commands: Commands, mut _windows: Query<&mut Window, With<PrimaryWindow>>) {
     commands.spawn(Camera2d);
     commands.insert_resource(VertexApp::new());
     commands.insert_resource(ClearColor(Srgba::new(0.9, 0.9, 0.9, 1.0).into()));
     commands.insert_resource(TextPainter::new());
+
+    commands.write_message(FileMessage::Opened(
+        FileType::ReferenceImage,
+        PathBuf::from("/home/wade/Documents/vertex/the_invincible_1.jpg"),
+    ));
+
+    commands.write_message(FileMessage::Opened(
+        FileType::Puzzle,
+        PathBuf::from("/home/wade/Documents/vertex/puzzle.txt"),
+    ));
+
+    // for mut window in windows.iter_mut() {
+    //     // window.set_maximized(true);
+    //     window.mode = bevy::window::WindowMode::Fullscreen(
+    //         MonitorSelection::Current,
+    //         VideoModeSelection::Current,
+    //     );
+    // }
 }
 
-fn on_fixed_tick(mut app: ResMut<VertexApp>) {
-    app.step()
+fn on_fixed_tick(mut app: ResMut<VertexApp>, mut commands: Commands) {
+    app.step(&mut commands);
 }
 
 fn debug_ui_system(mut contexts: EguiContexts, mut commands: Commands, mut app: ResMut<VertexApp>) {
@@ -99,6 +121,8 @@ fn debug_ui_system(mut contexts: EguiContexts, mut commands: Commands, mut app: 
 
         ui.checkbox(&mut app.is_snapping, "Snapping");
         ui.checkbox(&mut app.draw_hidden_edges, "Hidden Edges");
+        ui.add(egui::Slider::new(&mut app.ref_image_alpha, 0.05..=1.0));
+        ui.add(egui::Slider::new(&mut app.triangle_alpha, 0.05..=1.0));
     });
 }
 
@@ -117,6 +141,7 @@ fn on_load_puzzle(mut app: ResMut<VertexApp>, mut msg: MessageReader<FileMessage
 }
 
 fn on_input_tick(
+    mut commands: Commands,
     keys: Res<ButtonInput<KeyCode>>,
     mouse: Res<ButtonInput<MouseButton>>,
     window: Single<&Window, With<PrimaryWindow>>,
@@ -133,6 +158,10 @@ fn on_input_tick(
         if let Some(p) = app.mouse_pos {
             app.puzzle.add_point(p, true);
         }
+    }
+
+    if keys.just_pressed(KeyCode::Escape) {
+        commands.write_message(AppExit::Success);
     }
 
     // mousebutton presses
@@ -154,8 +183,6 @@ fn on_input_tick(
 
     let p = app.mouse_pos;
     app.set_cursor_position(TakeOnce::from_option(p));
-
-    app.buttons.sort_by_key(|e| 1 - e.is_clicked() as u8);
 }
 
 fn on_render_tick(painter: ShapePainter, app: Res<VertexApp>, mut text: ResMut<TextPainter>) {
@@ -172,7 +199,14 @@ const CURSOR_Z: f32 = 0.3;
 
 fn draw_game(mut painter: ShapePainter, text: &mut TextPainter, app: &VertexApp) {
     for (a, b, c, color) in app.puzzle.triangles() {
-        draw_triangle(&mut painter, a, b, c, TRIANGLE_Z, color);
+        draw_triangle(
+            &mut painter,
+            a,
+            b,
+            c,
+            TRIANGLE_Z,
+            color.with_alpha(app.triangle_alpha),
+        );
     }
 
     let complete = app.puzzle.is_complete();

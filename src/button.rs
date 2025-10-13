@@ -1,8 +1,8 @@
-use crate::lpf::Lpf;
 use crate::math::*;
 use crate::take_once::TakeOnce;
 use crate::ui_element::*;
 use bevy::color::Srgba;
+use bevy::prelude::*;
 use bevy_vector_shapes::prelude::*;
 
 pub struct Button {
@@ -37,11 +37,15 @@ impl UiElement for Button {
         0.0 <= p.x && p.x <= self.dims.x && 0.0 <= p.y && p.y <= self.dims.y
     }
 
-    fn step(&mut self) {
+    fn step(&mut self, _commands: &mut Commands) {
         self.hover_animation.target = self.is_hover as u8 as f32;
         self.hover_animation.step();
         self.clicked_animation.target = self.is_clicked() as u8 as f32;
         self.clicked_animation.step();
+    }
+
+    fn id(&self) -> &str {
+        "Button"
     }
 
     fn set_cursor_position(&mut self, t: &mut TakeOnce<Vec2>) {
@@ -66,7 +70,6 @@ impl UiElement for Button {
                 self.is_clicked = self.contains(*p);
                 if self.is_clicked {
                     t.take();
-                    dbg!("clicked!");
                 }
             }
         } else {

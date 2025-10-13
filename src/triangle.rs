@@ -1,4 +1,4 @@
-use crate::lpf::*;
+use crate::math::*;
 use bevy::color::Srgba;
 
 #[derive(Clone)]
