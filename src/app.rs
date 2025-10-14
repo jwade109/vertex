@@ -8,6 +8,8 @@ pub struct VertexApp {
     pub triangle_alpha: f32,
     pub puzzle_locked: bool,
     pub draw_missing_edge_indicators: bool,
+    pub draw_edges: bool,
+    pub blend_scale: f32,
 }
 
 impl VertexApp {
@@ -19,6 +21,8 @@ impl VertexApp {
             triangle_alpha: 1.0,
             puzzle_locked: false,
             draw_missing_edge_indicators: false,
+            draw_edges: true,
+            blend_scale: 0.5,
         }
     }
 }

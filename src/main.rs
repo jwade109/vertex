@@ -143,61 +143,63 @@ fn draw_puzzle(mut painter: ShapePainter, app: Res<VertexApp>, puzzle: Res<Puzzl
 
     let complete = puzzle.is_complete();
 
-    for (a, b, e) in puzzle.edges() {
-        let z = if e.is_visible {
-            ACTIVE_EDGE_Z
-        } else {
-            HIDDEN_EDGE_Z
-        };
-        let c = a.pos.lerp(b.pos, 0.5);
-        for (v, c) in [(a.pos, c), (b.pos, c)] {
-            let r = v.lerp(c, e.length_animation.actual);
-            draw_line(&mut painter, v, r, z, e.thickness_animation.actual, BLACK);
-        }
-        if !complete && app.draw_hidden_edges {
-            draw_line(
-                &mut painter,
-                a.pos,
-                b.pos,
-                HIDDEN_EDGE_Z,
-                3.0,
-                GRAY.with_alpha(0.2),
-            );
-        }
-    }
-
-    for v in puzzle.vertices() {
-        if v.marker_radius.actual < 1.0 {
-            continue;
-        }
-
-        draw_circle(&mut painter, v.pos, VERTEX_Z, v.marker_radius.actual, BLACK);
-        draw_circle(
-            &mut painter,
-            v.pos,
-            VERTEX_Z_2,
-            v.marker_radius.actual - 4.0,
-            WHITE,
-        );
-
-        if app.draw_missing_edge_indicators {
-            let total_edges = v.invisible_count + v.visible_count;
-            for i in 0..v.invisible_count {
-                let r = 20.0;
-                let a = std::f32::consts::PI * (0.5 + 2.0 * i as f32 / total_edges as f32);
-                let p = v.pos + Vec2::from_angle(a) * r;
-                draw_circle(&mut painter, p, VERTEX_Z_2, 4.0, BLACK);
+    if app.draw_edges {
+        for (a, b, e) in puzzle.edges() {
+            let z = if e.is_visible {
+                ACTIVE_EDGE_Z
+            } else {
+                HIDDEN_EDGE_Z
+            };
+            let c = a.pos.lerp(b.pos, 0.5);
+            for (v, c) in [(a.pos, c), (b.pos, c)] {
+                let r = v.lerp(c, e.length_animation.actual);
+                draw_line(&mut painter, v, r, z, e.thickness_animation.actual, BLACK);
+            }
+            if !complete && app.draw_hidden_edges {
+                draw_line(
+                    &mut painter,
+                    a.pos,
+                    b.pos,
+                    HIDDEN_EDGE_Z,
+                    3.0,
+                    GRAY.with_alpha(0.2),
+                );
             }
         }
 
-        if v.is_clicked {
-            draw_circle(&mut painter, v.pos, VERTEX_Z_2, 8.0, RED);
-        }
-        if v.is_hovered {
-            draw_circle(&mut painter, v.pos, VERTEX_Z_2, 8.0, GREEN);
-        }
-        if v.is_follow() {
-            draw_circle(&mut painter, v.pos, VERTEX_Z_2, 8.0, BLUE);
+        for v in puzzle.vertices() {
+            if v.marker_radius.actual < 1.0 {
+                continue;
+            }
+
+            draw_circle(&mut painter, v.pos, VERTEX_Z, v.marker_radius.actual, BLACK);
+            draw_circle(
+                &mut painter,
+                v.pos,
+                VERTEX_Z_2,
+                v.marker_radius.actual - 4.0,
+                WHITE,
+            );
+
+            if app.draw_missing_edge_indicators {
+                let total_edges = v.invisible_count + v.visible_count;
+                for i in 0..v.invisible_count {
+                    let r = 20.0;
+                    let a = std::f32::consts::PI * (0.5 + 2.0 * i as f32 / total_edges as f32);
+                    let p = v.pos + Vec2::from_angle(a) * r;
+                    draw_circle(&mut painter, p, VERTEX_Z_2, 4.0, BLACK);
+                }
+            }
+
+            if v.is_clicked {
+                draw_circle(&mut painter, v.pos, VERTEX_Z_2, 8.0, RED);
+            }
+            if v.is_hovered {
+                draw_circle(&mut painter, v.pos, VERTEX_Z_2, 8.0, GREEN);
+            }
+            if v.is_follow() {
+                draw_circle(&mut painter, v.pos, VERTEX_Z_2, 8.0, BLUE);
+            }
         }
     }
 

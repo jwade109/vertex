@@ -59,7 +59,7 @@ fn insert_new_image(
 
         commands.spawn((
             Sprite::from_image(handle),
-            Transform::from_xyz(x, y, REF_IMAGE_Z).with_scale(Vec3::splat(0.5)),
+            Transform::from_xyz(x, y, REF_IMAGE_Z).with_scale(Vec3::splat(2.2)),
             RefImageWindow::new(Vec2::new(x, y)),
         ));
     }
@@ -91,8 +91,8 @@ fn sync_sprite_to_window(
             let size = image.size().as_vec2();
             tf.translation.x = window.pos.x;
             tf.translation.y = window.pos.y;
-            tf.scale.x = window.dims.x / size.x;
-            tf.scale.y = window.dims.y / size.y;
+            // tf.scale.x = window.dims.x / size.x;
+            // tf.scale.y = window.dims.y / size.y;
         }
     }
 }

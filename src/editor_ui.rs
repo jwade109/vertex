@@ -65,10 +65,6 @@ fn editor_ui_system(
             puzzle.clear_triangles();
         }
 
-        if ui.button("Sample Colors").clicked() {
-            sample_colors(&mut puzzle, sprites, images);
-        }
-
         if ui.button("Clear").clicked() {
             *puzzle = Puzzle::empty();
         }
@@ -78,11 +74,25 @@ fn editor_ui_system(
             _ = dbg!(puzzle_to_file(&puzzle, "puzzle.txt"));
         }
 
-        ui.spacing();
+        ui.separator();
 
         ui.checkbox(&mut app.draw_hidden_edges, "Hidden Edges");
         ui.checkbox(&mut app.puzzle_locked, "Puzzle Locked");
         ui.checkbox(&mut app.draw_missing_edge_indicators, "Edge Indicators");
+        ui.checkbox(&mut app.draw_edges, "Draw Edges");
+
+        ui.separator();
+
+        ui.label("Color Sampling");
+
+        if ui.button("Sample Colors").clicked() {
+            sample_colors(&mut puzzle, sprites, &images, app.blend_scale);
+        }
+        ui.add(egui::Slider::new(&mut app.blend_scale, 0.1..=0.9));
+
+        ui.separator();
+
+        ui.label("Layer Opacity");
 
         ui.add(egui::Slider::new(&mut app.ref_image_alpha, 0.05..=1.0));
         ui.add(egui::Slider::new(&mut app.triangle_alpha, 0.05..=1.0));
@@ -92,12 +102,16 @@ fn editor_ui_system(
 fn sample_colors(
     puzzle: &mut Puzzle,
     sprites: Query<(&Sprite, &Transform)>,
-    images: Res<Assets<Image>>,
+    images: &Res<Assets<Image>>,
+    blend_scale: f32,
 ) {
     let triangles: Vec<_> = puzzle.triangles().map(|(a, b, c, _)| (a, b, c)).collect();
 
     for (a, b, c) in triangles {
         let center = (a + b + c) / 3.0;
+        let a = center.lerp(a, blend_scale);
+        let b = center.lerp(b, blend_scale);
+        let c = center.lerp(c, blend_scale);
         for (sprite, tf) in &sprites {
             let img = if let Some(img) = images.get(sprite.image.id()) {
                 img
@@ -131,6 +145,7 @@ fn sample_colors(
             let iter = ca.iter().chain(cb.iter()).chain(cc.iter()).chain(cd.iter());
             let n = iter.clone().count();
             if n == 0 {
+                println!("Unable to sample at points {:?}", [a, b, c, center]);
                 puzzle.set_color(center, PURPLE);
                 continue;
             }

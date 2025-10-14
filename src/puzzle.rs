@@ -194,8 +194,8 @@ impl Puzzle {
         self.edges.clear();
         self.triangles.clear();
 
-        for x in (-600..=600).step_by(60) {
-            for y in (-400..=400).step_by(60) {
+        for x in (-1200..=1200).step_by(30) {
+            for y in (-1200..=1200).step_by(30) {
                 self.add_point(Vec2::new(x as f32, y as f32), false);
             }
         }
@@ -428,17 +428,17 @@ impl Puzzle {
         let is_complete = self.is_complete();
 
         for (id, v) in &mut self.vertices {
-            v.visible_count = self
-                .edges
-                .iter()
-                .filter(|(_, e)| (e.a == *id || e.b == *id) && e.is_visible)
-                .count();
+            // v.visible_count = self
+            //     .edges
+            //     .iter()
+            //     .filter(|(_, e)| (e.a == *id || e.b == *id) && e.is_visible)
+            //     .count();
 
-            v.invisible_count = self
-                .edges
-                .iter()
-                .filter(|(_, e)| (e.a == *id || e.b == *id) && !e.is_visible)
-                .count();
+            // v.invisible_count = self
+            //     .edges
+            //     .iter()
+            //     .filter(|(_, e)| (e.a == *id || e.b == *id) && !e.is_visible)
+            //     .count();
 
             if v.is_clicked && v.is_hovered {
                 v.marker_radius.target = 25.0;
