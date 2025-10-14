@@ -69,6 +69,26 @@ impl InputMessage {
             _ => false,
         }
     }
+
+    pub fn is_right_released(&self) -> bool {
+        match self.event() {
+            InputEvent::MouseButton(i) => match (i.button, i.state) {
+                (MouseButton::Right, ButtonState::Released) => true,
+                _ => false,
+            },
+            _ => false,
+        }
+    }
+
+    pub fn is_right_pressed(&self) -> bool {
+        match self.event() {
+            InputEvent::MouseButton(i) => match (i.button, i.state) {
+                (MouseButton::Right, ButtonState::Pressed) => true,
+                _ => false,
+            },
+            _ => false,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

@@ -13,10 +13,9 @@ mod text;
 mod triangle;
 mod vertex;
 
-use std::path::PathBuf;
-
 use crate::app::*;
 use crate::button::*;
+use crate::color_picker::ColorPicker;
 use crate::drawing::*;
 use crate::editor_ui::EguiEditor;
 use crate::file_open_system::*;
@@ -27,6 +26,7 @@ use crate::text::*;
 use bevy::asset::UnapprovedPathMode;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
+use std::path::PathBuf;
 
 fn main() {
     App::new()
@@ -56,6 +56,9 @@ fn startup(mut commands: Commands, mut _windows: Query<&mut Window, With<Primary
     commands.insert_resource(VertexApp::new());
     commands.insert_resource(ClearColor(Srgba::new(0.9, 0.9, 0.9, 1.0).into()));
     commands.insert_resource(TextPainter::new());
+    commands.insert_resource(Puzzle::new());
+
+    commands.spawn(ColorPicker::new());
 
     commands.write_message(FileMessage::Opened(
         FileType::ReferenceImage,
@@ -76,11 +79,11 @@ fn startup(mut commands: Commands, mut _windows: Query<&mut Window, With<Primary
     // }
 }
 
-fn on_fixed_tick(mut app: ResMut<VertexApp>) {
-    app.step();
+fn on_fixed_tick(mut puzzle: ResMut<Puzzle>) {
+    puzzle.step();
 }
 
-fn on_load_puzzle(mut app: ResMut<VertexApp>, mut msg: MessageReader<FileMessage>) {
+fn on_load_puzzle(mut puzzle: ResMut<Puzzle>, mut msg: MessageReader<FileMessage>) {
     for msg in msg.read() {
         let path = if let FileMessage::Opened(FileType::Puzzle, path) = msg {
             path
@@ -89,7 +92,7 @@ fn on_load_puzzle(mut app: ResMut<VertexApp>, mut msg: MessageReader<FileMessage
         };
 
         if let Ok(p) = puzzle_from_file(&path) {
-            app.puzzle = p;
+            *puzzle = p;
         }
     }
 }
@@ -97,9 +100,9 @@ fn on_load_puzzle(mut app: ResMut<VertexApp>, mut msg: MessageReader<FileMessage
 fn on_input_tick(
     mut commands: Commands,
     keys: Res<ButtonInput<KeyCode>>,
-    mouse: Res<ButtonInput<MouseButton>>,
     window: Single<&Window, With<PrimaryWindow>>,
     mut app: ResMut<VertexApp>,
+    mut puzzle: ResMut<Puzzle>,
 ) {
     if let Some(p) = window.cursor_position() {
         let dims = window.size();
@@ -110,37 +113,22 @@ fn on_input_tick(
     // keyboard presses
     if keys.just_pressed(KeyCode::KeyQ) {
         if let Some(p) = app.mouse_pos {
-            app.puzzle.add_point(p, true);
+            puzzle.add_point(p, true);
         }
     }
 
     if keys.just_pressed(KeyCode::Escape) {
         commands.write_message(AppExit::Success);
     }
-
-    // mousebutton presses
-    if mouse.just_pressed(MouseButton::Left) {
-        app.on_left_mouse_press();
-    }
-
-    if mouse.just_released(MouseButton::Left) {
-        app.on_left_mouse_release();
-    }
-
-    if mouse.just_pressed(MouseButton::Right) {
-        app.on_right_mouse_press();
-    }
-
-    if mouse.just_released(MouseButton::Right) {
-        app.on_right_mouse_release();
-    }
-
-    let p = app.mouse_pos;
-    app.set_cursor_position(TakeOnce::from_option(p));
 }
 
-fn on_render_tick(painter: ShapePainter, app: Res<VertexApp>, mut text: ResMut<TextPainter>) {
-    draw_game(painter, &mut text, &app);
+fn on_render_tick(
+    painter: ShapePainter,
+    app: Res<VertexApp>,
+    puzzle: Res<Puzzle>,
+    mut text: ResMut<TextPainter>,
+) {
+    draw_game(painter, &mut text, &app, &puzzle);
 }
 
 const TRIANGLE_Z: f32 = 0.09;
@@ -151,8 +139,13 @@ const VERTEX_Z_2: f32 = 0.21;
 const ACTIVE_LINE_Z: f32 = 0.22;
 const CURSOR_Z: f32 = 0.3;
 
-fn draw_game(mut painter: ShapePainter, mut text: &mut TextPainter, app: &VertexApp) {
-    for (a, b, c, color) in app.puzzle.triangles() {
+fn draw_game(
+    mut painter: ShapePainter,
+    mut text: &mut TextPainter,
+    app: &VertexApp,
+    puzzle: &Puzzle,
+) {
+    for (a, b, c, color) in puzzle.triangles() {
         draw_triangle(
             &mut painter,
             a,
@@ -163,9 +156,9 @@ fn draw_game(mut painter: ShapePainter, mut text: &mut TextPainter, app: &Vertex
         );
     }
 
-    let complete = app.puzzle.is_complete();
+    let complete = puzzle.is_complete();
 
-    for (a, b, e) in app.puzzle.edges() {
+    for (a, b, e) in puzzle.edges() {
         let z = if e.is_visible {
             ACTIVE_EDGE_Z
         } else {
@@ -188,7 +181,7 @@ fn draw_game(mut painter: ShapePainter, mut text: &mut TextPainter, app: &Vertex
         }
     }
 
-    for v in app.puzzle.vertices() {
+    for v in puzzle.vertices() {
         if v.marker_radius.actual < 1.0 {
             continue;
         }
@@ -225,9 +218,9 @@ fn draw_game(mut painter: ShapePainter, mut text: &mut TextPainter, app: &Vertex
         draw_circle(&mut painter, p, CURSOR_Z, 5.0, GRAY.with_alpha(0.3));
     }
 
-    draw_cursor_line(&mut painter, &app.puzzle);
+    draw_cursor_line(&mut painter, &puzzle);
 
-    app.color_picker.draw(&mut painter, &mut text);
+    // app.color_picker.draw(&mut painter, &mut text);
 }
 
 fn draw_cursor_line(painter: &mut ShapePainter, puzzle: &Puzzle) -> Option<()> {

@@ -1,4 +1,7 @@
+use crate::app::VertexApp;
+use crate::color_picker::ColorPicker;
 use crate::math::*;
+use crate::puzzle::Puzzle;
 use crate::reference_image::RefImageWindow;
 use crate::take_once::*;
 use crate::text::TextPainter;
@@ -137,8 +140,7 @@ impl Plugin for ButtonPlugin {
                 Update,
                 (
                     draw_buttons,
-                    step_buttons,
-                    step_windows,
+                    draw_pickers,
                     translate_cursor_moved,
                     translate_cursor_entered,
                     translate_cursor_left,
@@ -147,6 +149,7 @@ impl Plugin for ButtonPlugin {
                     on_generic_input,
                 ),
             )
+            .add_systems(FixedUpdate, (step_buttons, step_pickers, step_windows))
             .add_message::<InputMessage>();
     }
 }
@@ -171,6 +174,16 @@ fn startup(mut commands: Commands) {
 fn draw_buttons(mut painter: ShapePainter, mut text: ResMut<TextPainter>, query: Query<&Button>) {
     for button in &query {
         button.draw(&mut painter, &mut text);
+    }
+}
+
+fn draw_pickers(
+    mut painter: ShapePainter,
+    mut text: ResMut<TextPainter>,
+    query: Query<&ColorPicker>,
+) {
+    for picker in &query {
+        picker.draw(&mut painter, &mut text);
     }
 }
 
@@ -216,11 +229,18 @@ fn translate_mouse_buttons(
 
 fn on_generic_input(
     mut buttons: Query<&mut Button>,
+    mut pickers: Query<&mut ColorPicker>,
     mut images: Query<&mut RefImageWindow>,
     mut msg: MessageReader<InputMessage>,
 ) {
     'outer: for input in msg.read() {
         let mut input = input.clone();
+        for mut picker in &mut pickers {
+            picker.on_input(&mut input);
+            if !input.should_propagate() {
+                continue 'outer;
+            }
+        }
         for mut button in &mut buttons {
             button.on_input(&mut input);
             if !input.should_propagate() {
@@ -233,6 +253,12 @@ fn on_generic_input(
                 continue 'outer;
             }
         }
+    }
+}
+
+fn step_pickers(mut query: Query<&mut ColorPicker>) {
+    for mut picker in &mut query {
+        picker.step();
     }
 }
 
@@ -249,8 +275,11 @@ fn step_windows(mut query: Query<&mut RefImageWindow>) {
 }
 
 fn cursor_to_buttons(
+    mut pickers: Query<&mut ColorPicker>,
     mut buttons: Query<&mut Button>,
     mut images: Query<&mut RefImageWindow>,
+    mut puzzle: ResMut<Puzzle>,
+    app: Res<VertexApp>,
     window: Single<&Window>,
 ) {
     let pos = if let Some(p) = window.cursor_position() {
@@ -261,13 +290,21 @@ fn cursor_to_buttons(
         return;
     };
 
+    let mut once = TakeOnce::new(pos);
+
+    for mut picker in &mut pickers {
+        picker.set_cursor_position(&mut once);
+    }
+
     for mut button in &mut buttons {
-        let mut once = TakeOnce::new(pos);
         button.set_cursor_position(&mut once);
     }
 
-    for mut button in &mut images {
-        let mut once = TakeOnce::new(pos);
-        button.set_cursor_position(&mut once);
+    if app.puzzle_locked {
+        for mut image in &mut images {
+            image.set_cursor_position(&mut once);
+        }
+    } else {
+        puzzle.set_cursor_position(&mut once);
     }
 }

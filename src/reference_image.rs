@@ -74,10 +74,26 @@ fn sync_sprite_to_window(
     for (window, mut tf, sprite) in &mut query {
         if let Some(image) = images.get(sprite.image.id()) {
             let size = image.size().as_vec2();
-            tf.translation.x = window.pos.x + window.dims.x / 2.0;
-            tf.translation.y = window.pos.y + window.dims.y / 2.0;
+            tf.translation.x = window.pos.x;
+            tf.translation.y = window.pos.y;
             tf.scale.x = window.dims.x / size.x;
             tf.scale.y = window.dims.y / size.y;
+        }
+    }
+}
+
+struct HandleState {
+    is_hovered: bool,
+    is_clicked: bool,
+    color: Srgba,
+}
+
+impl HandleState {
+    fn new(color: Srgba) -> Self {
+        Self {
+            is_hovered: false,
+            is_clicked: false,
+            color,
         }
     }
 }
@@ -87,9 +103,10 @@ pub struct RefImageWindow {
     pos: Vec2,
     dims: Vec2,
     mouse_delta: Option<Vec2>,
-    is_hover: bool,
+    is_hovered: bool,
     is_clicked: bool,
-    animation: Lpf,
+    hovered_animation: Lpf,
+    handle_states: [HandleState; 4],
 }
 
 impl RefImageWindow {
@@ -98,27 +115,58 @@ impl RefImageWindow {
             pos,
             dims: Vec2::new(800.0, 600.0),
             mouse_delta: None,
-            is_hover: false,
+            is_hovered: false,
             is_clicked: false,
-            animation: Lpf::new(0.0, 0.0, 0.2),
+            hovered_animation: Lpf::new(0.0, 0.0, 0.2),
+            handle_states: [
+                HandleState::new(RED),
+                HandleState::new(WHITE),
+                HandleState::new(WHITE),
+                HandleState::new(WHITE),
+            ],
         }
     }
 
-    fn contains(&self, p: Vec2) -> bool {
-        let p = p - self.pos;
+    fn contains_basic_bb(&self, p: Vec2) -> bool {
+        let p = p - (self.pos - self.dims / 2.0);
         0.0 <= p.x && p.x <= self.dims.x && 0.0 <= p.y && p.y <= self.dims.y
     }
 
+    fn corners(&self) -> [Vec2; 4] {
+        let half = self.dims / 2.0;
+        let flipped = half.with_x(-half.x);
+
+        [
+            self.pos + half,
+            self.pos + flipped,
+            self.pos - half,
+            self.pos - flipped,
+        ]
+    }
+
+    fn handles(&self) -> impl Iterator<Item = (Vec2, &HandleState)> + use<'_> {
+        self.corners().into_iter().zip(self.handle_states.iter())
+    }
+
+    fn handle_radius(&self) -> f32 {
+        self.hovered_animation.actual * 20.0
+    }
+
+    fn contains_corners(&self, p: Vec2) -> bool {
+        let r = self.handle_radius();
+        self.corners().into_iter().any(|c| c.distance(p) <= r)
+    }
+
     pub fn step(&mut self) {
-        self.animation.target = self.is_clicked as u8 as f32;
-        self.animation.step();
+        self.hovered_animation.target = self.is_hovered as u8 as f32;
+        self.hovered_animation.step();
     }
 
     pub fn set_cursor_position(&mut self, t: &mut TakeOnce<Vec2>) {
         if let Some(p) = t.peek() {
             let p = *p;
-            self.is_hover = self.contains(p);
-            if self.is_hover {
+            self.is_hovered = self.contains_basic_bb(p) || self.contains_corners(p);
+            if self.is_hovered {
                 t.take();
                 if self.is_clicked {
                     if let Some(q) = self.mouse_delta {
@@ -129,24 +177,20 @@ impl RefImageWindow {
                 }
             }
         } else {
-            self.is_hover = false;
+            self.is_hovered = false;
         }
     }
 
     fn on_left_click_pressed(&mut self) {
-        self.is_clicked = self.is_hover;
+        self.is_clicked = self.is_hovered;
     }
 
     fn on_left_click_release(&mut self) {
         self.is_clicked = false;
     }
 
-    fn is_hovered(&self) -> bool {
-        self.is_hover
-    }
-
     pub fn on_input(&mut self, input: &mut InputMessage) {
-        if self.is_hovered() && input.is_left_pressed() {
+        if self.is_hovered && input.is_left_pressed() {
             self.on_left_click_pressed();
             input.dont_propagate();
         } else if self.is_clicked && input.is_left_released() {
@@ -158,11 +202,16 @@ impl RefImageWindow {
     fn draw(&self, painter: &mut ShapePainter, _text: &mut TextPainter) {
         draw_rect(
             painter,
-            self.pos,
+            self.pos - self.dims / 2.0,
             self.dims,
-            if self.is_hover { TEAL } else { BLACK },
+            4.0,
+            if self.is_hovered { TEAL } else { BLACK },
         );
 
-        fill_rect(painter, self.pos, self.dims * self.animation.actual, BLUE.with_alpha(0.3));
+        let r = self.handle_radius();
+        for (corner, handle) in self.handles() {
+            draw_circle(painter, corner, 100.0, r, handle.color);
+            draw_hollow_circle(painter, corner, 100.0, r, 3.0, BLACK);
+        }
     }
 }

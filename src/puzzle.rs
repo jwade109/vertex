@@ -12,6 +12,7 @@ use std::path::PathBuf;
 
 const CLICK_TARGET_SIZE_PIXELS: f32 = 50.0;
 
+#[derive(Resource)]
 pub struct Puzzle {
     palette: Vec<Srgba>,
     next_vertex_id: usize,
@@ -129,13 +130,51 @@ impl Puzzle {
     }
 
     pub fn randomize(&mut self) {
+        self.palette = generate_color_palette(8);
         self.vertices.clear();
         self.edges.clear();
         self.triangles.clear();
-        for _ in 0..200 {
-            let v = Vec2::new(random(-1000.0, 1000.0), random(-600.0, 600.0));
+        for _ in 0..70 {
+            let v = Vec2::new(random(-700.0, 700.0), random(-400.0, 400.0));
             self.add_point(v, false);
         }
+
+        let ids: Vec<_> = self.vertices.iter().map(|(id, _)| *id).collect();
+
+        let points: Vec<_> = self
+            .vertices
+            .iter()
+            .map(|(_, v)| delaunator::Point {
+                x: v.pos.x as f64,
+                y: v.pos.y as f64,
+            })
+            .collect();
+
+        let tri = delaunator::triangulate(&points);
+
+        let mut i = 0;
+        loop {
+            let slice = match tri.triangles.get(i..i + 3) {
+                Some(slice) => slice,
+                None => break,
+            };
+
+            let a = ids[slice[0]];
+            let b = ids[slice[1]];
+            let c = ids[slice[2]];
+
+            for (u, v) in [(a, b), (b, c), (a, c)] {
+                let min = u.min(v);
+                let max = u.max(v);
+                let edge = Edge::new(min, max, true);
+
+                self.edges.insert((min, max), edge);
+            }
+
+            i += 3;
+        }
+
+        self.update_triangles();
     }
 
     pub fn vertices(&self) -> impl Iterator<Item = &Vertex> + use<'_> {

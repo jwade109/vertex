@@ -1,16 +1,16 @@
 use crate::drawing::*;
 use crate::math::*;
 use crate::take_once::*;
+use crate::text::TextPainter;
 use bevy::color::*;
 use bevy::prelude::*;
 use indexmap::IndexMap;
-use crate::text::TextPainter;
 
 pub const PICKER_INNER_RADIUS: f32 = 100.0;
 pub const PICKER_MIDDLE_RADIUS: f32 = 180.0;
 pub const PICKER_OUTER_BAND_WIDTH: f32 = 80.0;
 
-#[derive(Component, Clone)]
+#[derive(Component, Debug, Clone)]
 pub struct ColorPicker {
     is_open: bool,
     pos: Vec2,
@@ -184,6 +184,17 @@ impl ColorPicker {
 
     pub fn samplers(&self) -> impl Iterator<Item = &SelectionNode> + use<'_> {
         self.nodes_with_id().map(|(_, n)| n)
+    }
+
+    pub fn on_input(&mut self, input: &mut InputMessage) {
+        let mut t = TakeOnce::new(self.pos);
+        if input.is_right_pressed() {
+            self.on_right_click_down(&mut t);
+            input.dont_propagate();
+        } else if input.is_right_released() {
+            self.close();
+            input.dont_propagate();
+        }
     }
 
     pub fn step(&mut self) {
