@@ -26,6 +26,7 @@ use bevy::asset::UnapprovedPathMode;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use std::path::PathBuf;
+use bevy_dev_tools::fps_overlay::*;
 
 fn main() {
     App::new()
@@ -35,6 +36,7 @@ fn main() {
                 ..default()
             }), // .set(ImagePlugin::default_nearest()),
         )
+        .add_plugins(FpsOverlayPlugin::default())
         .add_plugins(Shape2dPlugin::default())
         .add_plugins(bevy_framepace::FramepacePlugin)
         .add_plugins(FilePlugin)

@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 bevy = { version = "0.17.2", features = ["jpeg"] }
+bevy_dev_tools = "0.17.2"
 bevy_egui = "0.37.1"
 bevy_framepace = { git = "https://github.com/TotalKrill/bevy_framepace", version = "0.20.0" }
 bevy_vector_shapes = "0.11.0"

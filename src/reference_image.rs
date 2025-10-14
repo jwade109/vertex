@@ -91,8 +91,8 @@ fn sync_sprite_to_window(
             let size = image.size().as_vec2();
             tf.translation.x = window.pos.x;
             tf.translation.y = window.pos.y;
-            // tf.scale.x = window.dims.x / size.x;
-            // tf.scale.y = window.dims.y / size.y;
+            tf.scale.x = window.dims.x / size.x;
+            tf.scale.y = window.dims.y / size.y;
         }
     }
 }
@@ -128,7 +128,7 @@ impl RefImageWindow {
     pub fn new(pos: Vec2) -> Self {
         Self {
             pos,
-            dims: Vec2::new(1700.0, 1200.0),
+            dims: Vec2::new(900.0, 900.0),
             mouse_delta: None,
             is_hovered: false,
             is_clicked: false,
