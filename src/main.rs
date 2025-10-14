@@ -6,6 +6,7 @@ mod edge;
 mod lpf;
 mod math;
 mod puzzle;
+mod slider;
 mod take_once;
 mod text;
 mod triangle;
@@ -144,7 +145,7 @@ fn on_input_tick(
     let p = app.mouse_pos;
     app.set_cursor_position(TakeOnce::from_option(p));
 
-    app.buttons.sort_by_key(|e| 1 - e.is_clicked() as u8);
+    app.ui_elements.sort_by_key(|e| 1 - e.is_clicked() as u8);
 }
 
 fn on_render_tick(painter: ShapePainter, app: Res<VertexApp>, mut text: ResMut<TextPainter>) {

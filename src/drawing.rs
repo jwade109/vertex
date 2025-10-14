@@ -4,14 +4,10 @@ pub use bevy::color::palettes::css::*;
 pub use bevy::color::Srgba;
 pub use bevy_vector_shapes::prelude::*;
 
-pub fn draw_rect(painter: &mut ShapePainter, origin: Vec2, dims: Vec2, color: Srgba) {
+pub fn draw_rect(painter: &mut ShapePainter, origin: Vec2, dims: Vec2, z: f32, color: Srgba) {
     painter.reset();
-    painter.set_translation((origin + dims / 2.0).extend(0.28));
+    painter.set_translation((origin + dims / 2.0).extend(z));
     painter.set_color(color);
-    painter.rect(dims);
-    painter.hollow = true;
-    painter.set_color(BLACK);
-    painter.thickness = 2.0;
     painter.rect(dims);
 }
 

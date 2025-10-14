@@ -1,7 +1,6 @@
 use crate::drawing::*;
 use crate::lpf::Lpf;
 use crate::math::*;
-use crate::take_once::TakeOnce;
 use crate::ui_element::*;
 use bevy::color::*;
 use indexmap::IndexMap;
@@ -86,7 +85,7 @@ impl ColorPicker {
         }
     }
 
-    pub fn on_right_click_down(&mut self, p: &mut TakeOnce<Vec2>) {
+    pub fn on_right_click_down(&mut self, p: &mut UiInput<Vec2>) {
         if self.is_open {
             return;
         }
@@ -190,7 +189,7 @@ impl UiElement for ColorPicker {
     }
 
     fn step(&mut self) {
-        self.inner_animation.target = self.is_open as u8 as f32;
+        self.inner_animation.target = (self.is_open as u8 as f32).max(0.2);
         self.inner_animation.step();
         self.outer_animation.target = self.is_outer_open() as u8 as f32;
         self.outer_animation.step();
@@ -256,7 +255,7 @@ impl UiElement for ColorPicker {
         }
     }
 
-    fn set_cursor_position(&mut self, p: &mut TakeOnce<Vec2>) {
+    fn set_cursor_position(&mut self, p: &mut UiInput<Vec2>) {
         if !self.is_open {
             return;
         }
@@ -318,6 +317,22 @@ impl UiElement for ColorPicker {
             text.set_height(48.0);
             text.text(format!("{:?}", c));
         }
+    }
+
+    fn on_left_click_down(&mut self, _t: &mut UiInput<Vec2>) {
+        todo!()
+    }
+
+    fn on_left_click_release(&mut self, _t: &mut UiInput<()>) {
+        todo!()
+    }
+
+    fn is_hovered(&self) -> bool {
+        todo!()
+    }
+
+    fn is_clicked(&self) -> bool {
+        todo!()
     }
 }
 

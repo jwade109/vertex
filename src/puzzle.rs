@@ -1,7 +1,7 @@
 use crate::edge::*;
 use crate::math::*;
-use crate::take_once::TakeOnce;
 use crate::triangle::*;
+use crate::ui_element::*;
 use crate::vertex::*;
 use bevy::color::palettes::basic::*;
 use bevy::prelude::*;
@@ -190,7 +190,7 @@ impl Puzzle {
         // TODO faces
     }
 
-    pub fn on_right_click_down(&mut self, pos: &mut TakeOnce<Vec2>) {
+    pub fn on_right_click_down(&mut self, pos: &mut UiInput<Vec2>) {
         let pos = match pos.take() {
             Some(v) => v,
             _ => return,
@@ -275,7 +275,7 @@ impl Puzzle {
         }
     }
 
-    pub fn set_cursor_position(&mut self, p: &mut TakeOnce<Vec2>) {
+    pub fn set_cursor_position(&mut self, p: &mut UiInput<Vec2>) {
         let pos = p.take();
         for (_, v) in &mut self.vertices {
             if !v.is_follow() {

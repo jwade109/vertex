@@ -1,7 +1,6 @@
 use crate::drawing::*;
 use crate::lpf::Lpf;
 use crate::math::Vec2;
-use crate::take_once::TakeOnce;
 use crate::ui_element::*;
 
 pub struct Window {
@@ -35,7 +34,7 @@ impl UiElement for Window {
         self.animation.step()
     }
 
-    fn set_cursor_position(&mut self, t: &mut TakeOnce<Vec2>) {
+    fn set_cursor_position(&mut self, t: &mut UiInput<Vec2>) {
         if let Some(p) = t.peek() {
             let p = *p;
             self.is_hover = self.contains(p);
@@ -50,7 +49,7 @@ impl UiElement for Window {
         }
     }
 
-    fn on_left_click_down(&mut self, t: &mut TakeOnce<Vec2>) {
+    fn on_left_click_down(&mut self, t: &mut UiInput<Vec2>) {
         if let Some(p) = t.peek() {
             if self.is_hover {
                 self.mouse_delta = Some(*p - self.pos);
@@ -61,7 +60,7 @@ impl UiElement for Window {
         }
     }
 
-    fn on_left_click_release(&mut self, _t: &mut TakeOnce<()>) {
+    fn on_left_click_release(&mut self, _t: &mut UiInput<()>) {
         self.mouse_delta = None;
     }
 
@@ -78,9 +77,16 @@ impl UiElement for Window {
             painter,
             self.pos,
             self.dims,
+            0.1,
             if self.is_hover { TEAL } else { GRAY },
         );
 
-        draw_rect(painter, self.pos, self.dims * self.animation.actual, BLUE);
+        draw_rect(
+            painter,
+            self.pos,
+            self.dims * self.animation.actual,
+            0.11,
+            BLUE,
+        );
     }
 }
