@@ -129,15 +129,14 @@ impl Puzzle {
         }
     }
 
-    pub fn randomize(&mut self) {
-        self.palette = generate_color_palette(8);
-        self.vertices.clear();
+    pub fn clear_triangles(&mut self) {
         self.edges.clear();
         self.triangles.clear();
-        for _ in 0..20 {
-            let v = Vec2::new(random(-700.0, 700.0), random(-400.0, 400.0));
-            self.add_point(v, false);
-        }
+    }
+
+    pub fn triangulate(&mut self) {
+        self.edges.clear();
+        self.triangles.clear();
 
         let ids: Vec<_> = self.vertices.iter().map(|(id, _)| *id).collect();
 
@@ -175,6 +174,33 @@ impl Puzzle {
         }
 
         self.update_triangles();
+    }
+
+    pub fn randomize(&mut self) {
+        self.palette = generate_color_palette(8);
+        self.vertices.clear();
+        self.edges.clear();
+        self.triangles.clear();
+        for _ in 0..20 {
+            let v = Vec2::new(random(-700.0, 700.0), random(-400.0, 400.0));
+            self.add_point(v, false);
+        }
+
+        self.triangulate();
+    }
+
+    pub fn grid(&mut self) {
+        self.vertices.clear();
+        self.edges.clear();
+        self.triangles.clear();
+
+        for x in (-600..=600).step_by(60) {
+            for y in (-400..=400).step_by(60) {
+                self.add_point(Vec2::new(x as f32, y as f32), false);
+            }
+        }
+
+        self.triangulate();
     }
 
     pub fn vertices(&self) -> impl Iterator<Item = &Vertex> + use<'_> {

@@ -128,7 +128,7 @@ impl RefImageWindow {
     pub fn new(pos: Vec2) -> Self {
         Self {
             pos,
-            dims: Vec2::new(800.0, 600.0),
+            dims: Vec2::new(1700.0, 1200.0),
             mouse_delta: None,
             is_hovered: false,
             is_clicked: false,
