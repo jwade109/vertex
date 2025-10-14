@@ -231,6 +231,8 @@ fn on_generic_input(
     mut buttons: Query<&mut Button>,
     mut pickers: Query<&mut ColorPicker>,
     mut images: Query<&mut RefImageWindow>,
+    mut puzzle: ResMut<Puzzle>,
+    app: Res<VertexApp>,
     mut msg: MessageReader<InputMessage>,
 ) {
     'outer: for input in msg.read() {
@@ -247,10 +249,18 @@ fn on_generic_input(
                 continue 'outer;
             }
         }
-        for mut image in &mut images {
-            image.on_input(&mut input);
+
+        if !app.puzzle_locked {
+            puzzle.on_input(&mut input);
             if !input.should_propagate() {
                 continue 'outer;
+            }
+        } else {
+            for mut image in &mut images {
+                image.on_input(&mut input);
+                if !input.should_propagate() {
+                    continue 'outer;
+                }
             }
         }
     }

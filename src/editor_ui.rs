@@ -63,6 +63,8 @@ fn editor_ui_system(
 
         ui.checkbox(&mut app.draw_hidden_edges, "Hidden Edges");
         ui.checkbox(&mut app.puzzle_locked, "Puzzle Locked");
+        ui.checkbox(&mut app.draw_missing_edge_indicators, "Edge Indicators");
+
         ui.add(egui::Slider::new(&mut app.ref_image_alpha, 0.05..=1.0));
         ui.add(egui::Slider::new(&mut app.triangle_alpha, 0.05..=1.0));
     });

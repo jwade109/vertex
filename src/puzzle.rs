@@ -134,7 +134,7 @@ impl Puzzle {
         self.vertices.clear();
         self.edges.clear();
         self.triangles.clear();
-        for _ in 0..70 {
+        for _ in 0..20 {
             let v = Vec2::new(random(-700.0, 700.0), random(-400.0, 400.0));
             self.add_point(v, false);
         }
@@ -166,7 +166,7 @@ impl Puzzle {
             for (u, v) in [(a, b), (b, c), (a, c)] {
                 let min = u.min(v);
                 let max = u.max(v);
-                let edge = Edge::new(min, max, true);
+                let edge = Edge::new(min, max, false);
 
                 self.edges.insert((min, max), edge);
             }
@@ -236,35 +236,31 @@ impl Puzzle {
         // TODO faces
     }
 
-    pub fn on_right_click_down(&mut self, pos: &mut TakeOnce<Vec2>) {
-        let pos = match pos.take() {
-            Some(v) => v,
-            _ => return,
-        };
-        if let Some(id) = self.vertex_at(pos, CLICK_TARGET_SIZE_PIXELS) {
-            let n_active_edges = self
-                .edges
-                .iter()
-                .filter(|(_, e)| e.has_vertex(id) && e.is_visible)
-                .count();
-            let n_edges = self.edges.iter().filter(|(_, e)| e.has_vertex(id)).count();
-            if n_active_edges > 0 {
-                self.edges
-                    .iter_mut()
-                    .filter(|(_, e)| e.has_vertex(id))
-                    .for_each(|(_, e)| e.is_visible = false);
-            } else if n_edges > 0 {
-                self.edges.retain(|_, e| !e.has_vertex(id));
-            } else {
-                self.remove_vertex(id);
-            }
-        }
+    fn on_right_click_down(&mut self) {
+        // if let Some(id) = self.vertex_at(pos, CLICK_TARGET_SIZE_PIXELS) {
+        //     let n_active_edges = self
+        //         .edges
+        //         .iter()
+        //         .filter(|(_, e)| e.has_vertex(id) && e.is_visible)
+        //         .count();
+        //     let n_edges = self.edges.iter().filter(|(_, e)| e.has_vertex(id)).count();
+        //     if n_active_edges > 0 {
+        //         self.edges
+        //             .iter_mut()
+        //             .filter(|(_, e)| e.has_vertex(id))
+        //             .for_each(|(_, e)| e.is_visible = false);
+        //     } else if n_edges > 0 {
+        //         self.edges.retain(|_, e| !e.has_vertex(id));
+        //     } else {
+        //         self.remove_vertex(id);
+        //     }
+        // }
     }
 
-    pub fn on_left_click_down(&mut self, pos: Vec2) {
-        if let Some(id) = self.vertex_at(pos, CLICK_TARGET_SIZE_PIXELS) {
-            if let Some(x) = self.vertices.get_mut(&id) {
-                x.is_clicked = true;
+    fn on_left_click_down(&mut self) {
+        for (_, vertex) in &mut self.vertices {
+            if vertex.is_hovered {
+                vertex.is_clicked = true;
             }
         }
     }
@@ -292,6 +288,11 @@ impl Puzzle {
         self.edges.contains_key(&(a, b))
     }
 
+    fn remove_edge(&mut self, a: usize, b: usize) {
+        let (a, b) = (a.min(b), a.max(b));
+        self.edges.remove(&(a, b));
+    }
+
     fn add_edge(&mut self, a: usize, b: usize, state: bool) {
         if a == b {
             return;
@@ -304,13 +305,13 @@ impl Puzzle {
         self.update_triangles();
     }
 
-    pub fn on_left_click_up(&mut self) {
+    fn on_left_click_up(&mut self) {
         let clicked = self.get_clicked_vertex();
         let hovered = self.get_hovered_vertex();
 
         if let Some((c, h)) = clicked.zip(hovered) {
-            if let Some(e) = self.get_edge_mut(c, h) {
-                e.is_visible = !e.is_visible;
+            if self.is_edge(c, h) {
+                self.remove_edge(c, h);
             } else {
                 self.add_edge(c, h, false)
             }
@@ -355,6 +356,27 @@ impl Puzzle {
             let idx = self.get_clicked_vertex()?;
             Some((idx, pos))
         }();
+    }
+
+    pub fn on_input(&mut self, input: &mut InputMessage) {
+        if input.is_right_pressed() {
+            self.on_right_click_down();
+            dbg!();
+            input.dont_propagate();
+        } else if input.is_left_pressed() {
+            dbg!();
+            self.on_left_click_down();
+            input.dont_propagate();
+        } else if input.is_left_released() {
+            dbg!();
+            self.on_left_click_up();
+            input.dont_propagate();
+        } else if input.is_right_released() {
+            dbg!();
+            // TODO
+            // self.on_right_click_down(&mut t);
+            // input.dont_propagate();
+        }
     }
 
     pub fn active_line(&self) -> Option<(usize, Vec2)> {

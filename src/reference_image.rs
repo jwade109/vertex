@@ -68,10 +68,25 @@ fn insert_new_image(
 }
 
 fn sync_sprite_to_window(
-    mut query: Query<(&RefImageWindow, &mut Transform, &Sprite)>,
+    mut commands: Commands,
+    mut query: Query<(Entity, &RefImageWindow, &mut Transform, &Sprite)>,
     images: Res<Assets<Image>>,
+    asset_server: Res<AssetServer>,
 ) {
-    for (window, mut tf, sprite) in &mut query {
+    use bevy::asset::LoadState;
+
+    for (e, window, mut tf, sprite) in &mut query {
+        let state = asset_server.load_state(sprite.image.id());
+        match state {
+            LoadState::NotLoaded => (),
+            LoadState::Loading => (),
+            LoadState::Loaded => (),
+            LoadState::Failed(_) => {
+                commands.entity(e).despawn();
+                continue;
+            }
+        };
+
         if let Some(image) = images.get(sprite.image.id()) {
             let size = image.size().as_vec2();
             tf.translation.x = window.pos.x;

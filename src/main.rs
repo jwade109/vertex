@@ -21,7 +21,6 @@ use crate::editor_ui::EguiEditor;
 use crate::file_open_system::*;
 use crate::math::*;
 use crate::reference_image::*;
-use crate::take_once::*;
 use crate::text::*;
 use bevy::asset::UnapprovedPathMode;
 use bevy::prelude::*;
@@ -46,7 +45,7 @@ fn main() {
         .add_systems(FixedUpdate, on_fixed_tick)
         .add_systems(
             Update,
-            (on_input_tick, on_render_tick, text_system, on_load_puzzle).chain(),
+            (on_input_tick, draw_puzzle, text_system, on_load_puzzle).chain(),
         )
         .run();
 }
@@ -62,7 +61,7 @@ fn startup(mut commands: Commands, mut _windows: Query<&mut Window, With<Primary
 
     commands.write_message(FileMessage::Opened(
         FileType::ReferenceImage,
-        PathBuf::from("/home/wade/Documents/vertex/the_invincible_1.jpg"),
+        PathBuf::from("/home/wade/Documents/vertex/potato.jpg"),
     ));
 
     commands.write_message(FileMessage::Opened(
@@ -122,15 +121,6 @@ fn on_input_tick(
     }
 }
 
-fn on_render_tick(
-    painter: ShapePainter,
-    app: Res<VertexApp>,
-    puzzle: Res<Puzzle>,
-    mut text: ResMut<TextPainter>,
-) {
-    draw_game(painter, &mut text, &app, &puzzle);
-}
-
 const TRIANGLE_Z: f32 = 0.09;
 const HIDDEN_EDGE_Z: f32 = 0.1;
 const ACTIVE_EDGE_Z: f32 = 0.11;
@@ -139,12 +129,7 @@ const VERTEX_Z_2: f32 = 0.21;
 const ACTIVE_LINE_Z: f32 = 0.22;
 const CURSOR_Z: f32 = 0.3;
 
-fn draw_game(
-    mut painter: ShapePainter,
-    mut text: &mut TextPainter,
-    app: &VertexApp,
-    puzzle: &Puzzle,
-) {
+fn draw_puzzle(mut painter: ShapePainter, app: Res<VertexApp>, puzzle: Res<Puzzle>) {
     for (a, b, c, color) in puzzle.triangles() {
         draw_triangle(
             &mut painter,
@@ -195,12 +180,14 @@ fn draw_game(
             WHITE,
         );
 
-        let total_edges = v.invisible_count + v.visible_count;
-        for i in 0..v.invisible_count {
-            let r = 20.0;
-            let a = std::f32::consts::PI * (0.5 + 2.0 * i as f32 / total_edges as f32);
-            let p = v.pos + Vec2::from_angle(a) * r;
-            draw_circle(&mut painter, p, VERTEX_Z_2, 4.0, BLACK);
+        if app.draw_missing_edge_indicators {
+            let total_edges = v.invisible_count + v.visible_count;
+            for i in 0..v.invisible_count {
+                let r = 20.0;
+                let a = std::f32::consts::PI * (0.5 + 2.0 * i as f32 / total_edges as f32);
+                let p = v.pos + Vec2::from_angle(a) * r;
+                draw_circle(&mut painter, p, VERTEX_Z_2, 4.0, BLACK);
+            }
         }
 
         if v.is_clicked {
@@ -219,8 +206,6 @@ fn draw_game(
     }
 
     draw_cursor_line(&mut painter, &puzzle);
-
-    // app.color_picker.draw(&mut painter, &mut text);
 }
 
 fn draw_cursor_line(painter: &mut ShapePainter, puzzle: &Puzzle) -> Option<()> {
