@@ -145,7 +145,7 @@ impl Plugin for ButtonPlugin {
                     translate_cursor_entered,
                     translate_cursor_left,
                     translate_mouse_buttons,
-                    cursor_to_buttons,
+                    propagate_cursor_position,
                     on_generic_input,
                 ),
             )
@@ -231,18 +231,20 @@ fn on_generic_input(
     mut buttons: Query<&mut Button>,
     mut pickers: Query<&mut ColorPicker>,
     mut images: Query<&mut RefImageWindow>,
-    mut puzzle: ResMut<Puzzle>,
+    mut puzzle: Single<&mut Puzzle>,
     app: Res<VertexApp>,
     mut msg: MessageReader<InputMessage>,
 ) {
     'outer: for input in msg.read() {
         let mut input = input.clone();
-        for mut picker in &mut pickers {
-            picker.on_input(&mut input);
-            if !input.should_propagate() {
-                continue 'outer;
-            }
-        }
+
+        // for mut picker in &mut pickers {
+        //     picker.on_input(&mut input);
+        //     if !input.should_propagate() {
+        //         continue 'outer;
+        //     }
+        // }
+
         for mut button in &mut buttons {
             button.on_input(&mut input);
             if !input.should_propagate() {
@@ -278,29 +280,25 @@ fn step_buttons(mut query: Query<&mut Button>) {
     }
 }
 
-fn step_windows(mut query: Query<&mut RefImageWindow>) {
-    for mut window in &mut query {
+fn step_windows(mut commands: Commands, mut query: Query<(Entity, &mut RefImageWindow)>) {
+    for (e, mut window) in &mut query {
         window.step();
+        if window.should_despawn() {
+            commands.entity(e).despawn();
+        }
     }
 }
 
-fn cursor_to_buttons(
+fn propagate_cursor_position(
     mut pickers: Query<&mut ColorPicker>,
     mut buttons: Query<&mut Button>,
     mut images: Query<&mut RefImageWindow>,
-    mut puzzle: ResMut<Puzzle>,
+    mut puzzle: Single<&mut Puzzle>,
     app: Res<VertexApp>,
-    window: Single<&Window>,
 ) {
-    let pos = if let Some(p) = window.cursor_position() {
-        let dims = window.size();
-        let x = p - dims / 2.0;
-        x.with_y(-x.y)
-    } else {
-        return;
-    };
+    let pos = app.mouse_pos;
 
-    let mut once = TakeOnce::new(pos);
+    let mut once = TakeOnce::from_option(pos);
 
     for mut picker in &mut pickers {
         picker.set_cursor_position(&mut once);
@@ -314,7 +312,13 @@ fn cursor_to_buttons(
         for mut image in &mut images {
             image.set_cursor_position(&mut once);
         }
+        once.take();
+        puzzle.set_cursor_position(&mut once);
     } else {
         puzzle.set_cursor_position(&mut once);
+        once.take();
+        for mut image in &mut images {
+            image.set_cursor_position(&mut once);
+        }
     }
 }

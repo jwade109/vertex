@@ -12,7 +12,7 @@ use std::path::PathBuf;
 
 const CLICK_TARGET_SIZE_PIXELS: f32 = 50.0;
 
-#[derive(Resource)]
+#[derive(Component)]
 pub struct Puzzle {
     palette: Vec<Srgba>,
     next_vertex_id: usize,
@@ -55,15 +55,40 @@ impl Puzzle {
         for (_, e) in &mut self.edges {
             e.is_visible = true;
         }
+
+        self.update_visibility();
     }
 
     pub fn decomplete(&mut self) {
         for (_, e) in &mut self.edges {
             e.is_visible = false;
         }
+
+        self.update_visibility();
     }
 
-    pub fn update_triangles(&mut self) {
+    fn update(&mut self) {
+        self.update_triangles();
+        self.update_visibility();
+    }
+
+    fn update_visibility(&mut self) {
+        for (id, v) in &mut self.vertices {
+            v.visible_count = self
+                .edges
+                .iter()
+                .filter(|(_, e)| (e.a == *id || e.b == *id) && e.is_visible)
+                .count();
+
+            v.invisible_count = self
+                .edges
+                .iter()
+                .filter(|(_, e)| (e.a == *id || e.b == *id) && !e.is_visible)
+                .count();
+        }
+    }
+
+    fn update_triangles(&mut self) {
         for (_, edge) in &self.edges {
             let u = edge.a;
             let v = edge.b;
@@ -121,17 +146,20 @@ impl Puzzle {
                 self.vertices.insert(id, new_vertex);
                 id
             };
-            self.add_edge(new_id, other, false);
+            self.add_edge(new_id, other, true);
             self.active_line = Some((new_id, pos));
         } else {
             let id = self.next_vertex_id();
             self.vertices.insert(id, Vertex::new(p));
         }
+
+        self.update();
     }
 
     pub fn clear_triangles(&mut self) {
         self.edges.clear();
         self.triangles.clear();
+        self.update();
     }
 
     pub fn triangulate(&mut self) {
@@ -173,7 +201,7 @@ impl Puzzle {
             i += 3;
         }
 
-        self.update_triangles();
+        self.update();
     }
 
     pub fn randomize(&mut self) {
@@ -187,6 +215,7 @@ impl Puzzle {
         }
 
         self.triangulate();
+        self.update();
     }
 
     pub fn grid(&mut self) {
@@ -194,17 +223,20 @@ impl Puzzle {
         self.edges.clear();
         self.triangles.clear();
 
-        for x in (-1200..=1200).step_by(30) {
-            for y in (-1200..=1200).step_by(30) {
-                self.add_point(Vec2::new(x as f32, y as f32), false);
+        for x in (-800..=800).step_by(40) {
+            for y in (-800..=800).step_by(40) {
+                let dx = random(-20.0, 20.0);
+                let dy = random(-20.0, 20.0);
+                self.add_point(Vec2::new(x as f32 + dx, y as f32 + dy), false);
             }
         }
 
         self.triangulate();
+        self.update();
     }
 
-    pub fn vertices(&self) -> impl Iterator<Item = &Vertex> + use<'_> {
-        self.vertices.iter().map(|(_, v)| v)
+    pub fn vertices(&self) -> impl Iterator<Item = (usize, &Vertex)> + use<'_> {
+        self.vertices.iter().map(|(i, v)| (*i, v))
     }
 
     pub fn vertex_n(&self, n: usize) -> Option<&Vertex> {
@@ -259,28 +291,13 @@ impl Puzzle {
     pub fn remove_vertex(&mut self, id: usize) {
         self.vertices.remove_entry(&id);
         self.edges.retain(|_, e| !e.has_vertex(id));
+        self.update();
         // TODO faces
     }
 
     fn on_right_click_down(&mut self) {
-        // if let Some(id) = self.vertex_at(pos, CLICK_TARGET_SIZE_PIXELS) {
-        //     let n_active_edges = self
-        //         .edges
-        //         .iter()
-        //         .filter(|(_, e)| e.has_vertex(id) && e.is_visible)
-        //         .count();
-        //     let n_edges = self.edges.iter().filter(|(_, e)| e.has_vertex(id)).count();
-        //     if n_active_edges > 0 {
-        //         self.edges
-        //             .iter_mut()
-        //             .filter(|(_, e)| e.has_vertex(id))
-        //             .for_each(|(_, e)| e.is_visible = false);
-        //     } else if n_edges > 0 {
-        //         self.edges.retain(|_, e| !e.has_vertex(id));
-        //     } else {
-        //         self.remove_vertex(id);
-        //     }
-        // }
+        self.vertices.retain(|_, v| !v.is_hovered);
+        self.update();
     }
 
     fn on_left_click_down(&mut self) {
@@ -289,6 +306,7 @@ impl Puzzle {
                 vertex.is_clicked = true;
             }
         }
+        self.update();
     }
 
     fn get_hovered_vertex(&mut self) -> Option<usize> {
@@ -317,6 +335,7 @@ impl Puzzle {
     fn remove_edge(&mut self, a: usize, b: usize) {
         let (a, b) = (a.min(b), a.max(b));
         self.edges.remove(&(a, b));
+        self.update();
     }
 
     fn add_edge(&mut self, a: usize, b: usize, state: bool) {
@@ -328,7 +347,7 @@ impl Puzzle {
         let max = a.max(b);
         let edge = Edge::new(min, max, state);
         self.edges.insert((min, max), edge);
-        self.update_triangles();
+        self.update();
     }
 
     fn on_left_click_up(&mut self) {
@@ -339,13 +358,15 @@ impl Puzzle {
             if self.is_edge(c, h) {
                 self.remove_edge(c, h);
             } else {
-                self.add_edge(c, h, false)
+                self.add_edge(c, h, true)
             }
         }
 
         for (_, v) in &mut self.vertices {
             v.is_clicked = false;
         }
+
+        self.update();
     }
 
     pub fn set_cursor_position(&mut self, p: &mut TakeOnce<Vec2>) {
@@ -387,18 +408,14 @@ impl Puzzle {
     pub fn on_input(&mut self, input: &mut InputMessage) {
         if input.is_right_pressed() {
             self.on_right_click_down();
-            dbg!();
             input.dont_propagate();
         } else if input.is_left_pressed() {
-            dbg!();
             self.on_left_click_down();
             input.dont_propagate();
         } else if input.is_left_released() {
-            dbg!();
             self.on_left_click_up();
             input.dont_propagate();
         } else if input.is_right_released() {
-            dbg!();
             // TODO
             // self.on_right_click_down(&mut t);
             // input.dont_propagate();
@@ -427,19 +444,7 @@ impl Puzzle {
     pub fn step(&mut self) {
         let is_complete = self.is_complete();
 
-        for (id, v) in &mut self.vertices {
-            // v.visible_count = self
-            //     .edges
-            //     .iter()
-            //     .filter(|(_, e)| (e.a == *id || e.b == *id) && e.is_visible)
-            //     .count();
-
-            // v.invisible_count = self
-            //     .edges
-            //     .iter()
-            //     .filter(|(_, e)| (e.a == *id || e.b == *id) && !e.is_visible)
-            //     .count();
-
+        for (_, v) in &mut self.vertices {
             if v.is_clicked && v.is_hovered {
                 v.marker_radius.target = 25.0;
             } else if is_complete && v.visible_count > 0 {
@@ -516,7 +521,7 @@ impl From<PuzzleRepr> for Puzzle {
             })
             .collect();
         for (a, b) in value.edges {
-            puzzle.add_edge(a, b, rand() < 0.3);
+            puzzle.add_edge(a, b, true);
         }
 
         for (a, b, c, color) in value.triangles {

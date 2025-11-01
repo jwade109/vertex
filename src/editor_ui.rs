@@ -1,16 +1,48 @@
 use crate::app::VertexApp;
 use crate::file_open_system::*;
 use crate::puzzle::*;
-use bevy::color::palettes::css::*;
+use crate::text_alerts::TextMessage;
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts, EguiPlugin, EguiPrimaryContextPass};
+use egui::containers::panel::Side;
 
 pub struct EguiEditor;
 
 impl Plugin for EguiEditor {
     fn build(&self, app: &mut App) {
         app.add_plugins(EguiPlugin::default())
+            .add_message::<SavePuzzle>()
+            .add_systems(Update, save_puzzle_system)
             .add_systems(EguiPrimaryContextPass, editor_ui_system);
+    }
+}
+
+#[derive(Message)]
+pub struct SavePuzzle {
+    filepath: String,
+}
+
+fn save_puzzle_system(
+    mut commands: Commands,
+    puzzle: Single<&Puzzle>,
+    mut save: MessageReader<SavePuzzle>,
+) {
+    for evt in save.read() {
+        println!("Saving puzzle to {}", &evt.filepath);
+        match puzzle_to_file(&puzzle, &evt.filepath) {
+            Ok(()) => {
+                commands.write_message(TextMessage::new(format!(
+                    "Saved puzzle to \"{}\"",
+                    &evt.filepath
+                )));
+            }
+            Err(e) => {
+                commands.write_message(TextMessage::new(format!(
+                    "Failed to save puzzle to \"{}\": {}",
+                    &evt.filepath, e
+                )));
+            }
+        }
     }
 }
 
@@ -18,90 +50,138 @@ fn editor_ui_system(
     mut contexts: EguiContexts,
     mut commands: Commands,
     mut app: ResMut<VertexApp>,
-    mut puzzle: ResMut<Puzzle>,
-    mut sprites: Query<(&Sprite, &Transform)>,
+    mut puzzle: Single<&mut Puzzle>,
+    mut camera: Single<&mut Transform, (With<Camera>, Without<Sprite>)>,
+    sprites: Query<(Entity, &Sprite, &Transform)>,
     images: Res<Assets<Image>>,
+    keys: Res<ButtonInput<KeyCode>>,
 ) {
-    egui::Window::new("Editor").show(contexts.ctx_mut().unwrap(), |ui| {
-        let x = ui.style_mut();
+    if keys.just_pressed(KeyCode::KeyE) {
+        app.puzzle_locked = true;
+    }
+    if keys.just_released(KeyCode::KeyE) {
+        app.puzzle_locked = false;
+    }
 
-        x.spacing.item_spacing.y = 10.0;
-        x.spacing.button_padding.x = 5.0;
-        x.spacing.button_padding.y = 5.0;
-        x.visuals.dark_mode = false;
-        for x in &mut x.text_styles {
-            x.1.size *= 1.5;
-        }
+    if keys.pressed(KeyCode::ControlLeft) && keys.just_pressed(KeyCode::KeyS) {
+        commands.write_message(SavePuzzle {
+            filepath: "puzzle.txt".into(),
+        });
+    }
 
-        if ui.button("Open Puzzle").clicked() {
-            commands.write_message(FileMessage::OpenFile(FileType::Puzzle));
-        }
+    if keys.pressed(KeyCode::ControlLeft) && keys.just_pressed(KeyCode::KeyO) {
+        commands.write_message(FileMessage::OpenFile(FileType::Any));
+    }
 
-        if ui.button("Open Image").clicked() {
-            commands.write_message(FileMessage::OpenFile(FileType::ReferenceImage));
-        }
+    egui::SidePanel::new(Side::Right, "Editor")
+        .exact_width(300.0)
+        .show(contexts.ctx_mut().unwrap(), |ui| {
+            let x = ui.style_mut();
 
-        if ui.button("Complete").clicked() {
-            puzzle.complete();
-        }
+            x.spacing.item_spacing.y = 10.0;
+            x.spacing.button_padding.x = 5.0;
+            x.spacing.button_padding.y = 5.0;
+            x.visuals.dark_mode = false;
+            for x in &mut x.text_styles {
+                x.1.size *= 1.5;
+            }
 
-        if ui.button("Decomplete").clicked() {
-            puzzle.decomplete();
-        }
+            ui.label("Camera");
 
-        if ui.button("Randomize").clicked() {
-            puzzle.randomize();
-        }
+            let mut scale = camera.scale.x;
 
-        if ui.button("Triangulate").clicked() {
-            puzzle.triangulate();
-        }
+            ui.add(egui::Slider::new(&mut camera.translation.x, -50000.0..=50000.0));
+            ui.add(egui::Slider::new(&mut camera.translation.y, -50000.0..=50000.0));
+            ui.add(egui::Slider::new(
+                &mut camera.translation.z,
+                -5000.0..=5000.0,
+            ));
+            ui.add(egui::Slider::new(&mut scale, 0.01..=10.0));
 
-        if ui.button("Grid").clicked() {
-            puzzle.grid();
-        }
+            camera.scale.x = scale;
+            camera.scale.y = scale;
 
-        if ui.button("Clear Triangles").clicked() {
-            puzzle.clear_triangles();
-        }
+            ui.separator();
 
-        if ui.button("Clear").clicked() {
-            *puzzle = Puzzle::empty();
-        }
+            if ui.button("Open Puzzle").clicked() {
+                commands.write_message(FileMessage::OpenFile(FileType::Puzzle));
+            }
 
-        if ui.button("Save to File").clicked() {
-            println!("Saving to file");
-            _ = dbg!(puzzle_to_file(&puzzle, "puzzle.txt"));
-        }
+            if ui.button("Open Image").clicked() {
+                commands.write_message(FileMessage::OpenFile(FileType::ReferenceImage));
+            }
 
-        ui.separator();
+            if ui.button("Complete").clicked() {
+                puzzle.complete();
+            }
 
-        ui.checkbox(&mut app.draw_hidden_edges, "Hidden Edges");
-        ui.checkbox(&mut app.puzzle_locked, "Puzzle Locked");
-        ui.checkbox(&mut app.draw_missing_edge_indicators, "Edge Indicators");
-        ui.checkbox(&mut app.draw_edges, "Draw Edges");
+            if ui.button("Decomplete").clicked() {
+                puzzle.decomplete();
+            }
 
-        ui.separator();
+            if ui.button("Randomize").clicked() {
+                puzzle.randomize();
+            }
 
-        ui.label("Color Sampling");
+            if ui.button("Triangulate").clicked() {
+                puzzle.triangulate();
+            }
 
-        if ui.button("Sample Colors").clicked() {
-            sample_colors(&mut puzzle, sprites, &images, app.blend_scale);
-        }
-        ui.add(egui::Slider::new(&mut app.blend_scale, 0.1..=0.9));
+            if ui.button("Grid").clicked() {
+                puzzle.grid();
+            }
 
-        ui.separator();
+            if ui.button("Clear Triangles").clicked() {
+                puzzle.clear_triangles();
+            }
 
-        ui.label("Layer Opacity");
+            if ui.button("Clear").clicked() {
+                **puzzle = Puzzle::empty();
+                for (e, ..) in &sprites {
+                    commands.entity(e).despawn();
+                }
+            }
 
-        ui.add(egui::Slider::new(&mut app.ref_image_alpha, 0.05..=1.0));
-        ui.add(egui::Slider::new(&mut app.triangle_alpha, 0.05..=1.0));
-    });
+            if ui.button("Save to File").clicked() {
+                commands.write_message(SavePuzzle {
+                    filepath: "puzzle.txt".into(),
+                });
+            }
+
+            ui.separator();
+
+            ui.checkbox(&mut app.draw_hidden_edges, "Hidden Edges");
+            ui.checkbox(&mut app.puzzle_locked, "Puzzle Locked");
+            ui.checkbox(&mut app.draw_missing_edge_indicators, "Edge Indicators");
+            ui.checkbox(&mut app.draw_edges, "Draw Edges");
+
+            ui.separator();
+
+            ui.label("Color Sampling");
+
+            if ui.button("Sample Colors").clicked() {
+                sample_colors(&mut puzzle, &sprites, &images, app.blend_scale);
+            }
+            ui.add(egui::Slider::new(&mut app.blend_scale, 0.1..=0.9));
+
+            ui.separator();
+
+            ui.label("Layer Opacity");
+
+            ui.add(egui::Slider::new(&mut app.ref_image_alpha, 0.05..=1.0));
+            ui.add(egui::Slider::new(&mut app.triangle_alpha, 0.05..=1.0));
+
+            ui.separator();
+
+            if ui.button("Send Text Alert").clicked() {
+                commands.write_message(TextMessage::new("hello!"));
+            }
+        });
 }
 
 fn sample_colors(
     puzzle: &mut Puzzle,
-    sprites: Query<(&Sprite, &Transform)>,
+    sprites: &Query<(Entity, &Sprite, &Transform)>,
     images: &Res<Assets<Image>>,
     blend_scale: f32,
 ) {
@@ -112,7 +192,7 @@ fn sample_colors(
         let a = center.lerp(a, blend_scale);
         let b = center.lerp(b, blend_scale);
         let c = center.lerp(c, blend_scale);
-        for (sprite, tf) in &sprites {
+        for (_, sprite, tf) in sprites {
             let img = if let Some(img) = images.get(sprite.image.id()) {
                 img
             } else {
@@ -145,8 +225,7 @@ fn sample_colors(
             let iter = ca.iter().chain(cb.iter()).chain(cc.iter()).chain(cd.iter());
             let n = iter.clone().count();
             if n == 0 {
-                println!("Unable to sample at points {:?}", [a, b, c, center]);
-                puzzle.set_color(center, PURPLE);
+                // puzzle.set_color(center, Srgba::NONE);
                 continue;
             }
 

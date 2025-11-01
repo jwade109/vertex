@@ -4,6 +4,7 @@ use crate::math::*;
 pub use crate::puzzle::*;
 pub use bevy::color::palettes::css::*;
 pub use bevy::color::Srgba;
+use bevy::math::IVec2;
 pub use bevy_vector_shapes::prelude::*;
 
 pub fn fill_rect(painter: &mut ShapePainter, origin: Vec2, dims: Vec2, color: Srgba) {
@@ -26,8 +27,15 @@ pub fn draw_rect(painter: &mut ShapePainter, origin: Vec2, dims: Vec2, t: f32, c
     painter.rect(dims + Vec2::splat(t));
 }
 
+pub fn draw_grid(painter: &mut ShapePainter, g: IVec2, t: f32, color: Srgba) {
+    let bounds = crate::grid::grid_bounds(g);
+    let origin = bounds.0;
+    let dims = bounds.1 - bounds.0;
+    draw_rect(painter, origin, dims, t, color);
+}
+
 pub fn draw_circle(painter: &mut ShapePainter, p: Vec2, z: f32, r: f32, color: Srgba) {
-    if r < 1.0 {
+    if r < 0.01 {
         return;
     }
     painter.reset();
@@ -47,7 +55,7 @@ pub fn draw_hollow_circle(
     t: f32,
     color: Srgba,
 ) {
-    if r < 1.0 {
+    if r < 0.01 {
         return;
     }
     painter.reset();

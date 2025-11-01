@@ -14,6 +14,7 @@ impl Plugin for FilePlugin {
 
 #[derive(Debug, Clone, Copy)]
 pub enum FileType {
+    Any,
     Puzzle,
     ReferenceImage,
 }
@@ -21,6 +22,7 @@ pub enum FileType {
 impl FileType {
     fn filter(&self) -> (&'static str, &'static [&'static str]) {
         match self {
+            Self::Any => ("Anything", &["txt", "png", "jpg", "jpeg"]),
             Self::Puzzle => ("Puzzle", &["txt"]),
             Self::ReferenceImage => ("Image", &["png", "jpg", "jpeg"]),
         }

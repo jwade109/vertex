@@ -1,31 +1,37 @@
 mod app;
 mod button;
+mod camera;
 mod color_picker;
 mod drawing;
 mod edge;
 mod editor_ui;
 mod file_open_system;
+mod grid;
 mod math;
 mod puzzle;
 mod reference_image;
 mod take_once;
 mod text;
+mod text_alerts;
 mod triangle;
 mod vertex;
 
 use crate::app::*;
 use crate::button::*;
+use crate::camera::*;
 use crate::color_picker::ColorPicker;
 use crate::drawing::*;
 use crate::editor_ui::EguiEditor;
 use crate::file_open_system::*;
+use crate::grid::*;
 use crate::math::*;
 use crate::reference_image::*;
 use crate::text::*;
+use crate::text_alerts::*;
+
 use bevy::asset::UnapprovedPathMode;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
-use std::path::PathBuf;
 use bevy_dev_tools::fps_overlay::*;
 
 fn main() {
@@ -43,8 +49,11 @@ fn main() {
         .add_plugins(ButtonPlugin)
         .add_plugins(ReferenceImagePlugin)
         .add_plugins(EguiEditor)
+        .add_plugins(TextAlertPlugin)
+        .add_plugins(CameraControllerPlugin)
+        .add_plugins(GridPlugin)
         .add_systems(Startup, startup)
-        .add_systems(FixedUpdate, on_fixed_tick)
+        .add_systems(FixedUpdate, step_puzzle)
         .add_systems(
             Update,
             (on_input_tick, draw_puzzle, text_system, on_load_puzzle).chain(),
@@ -57,19 +66,9 @@ fn startup(mut commands: Commands, mut _windows: Query<&mut Window, With<Primary
     commands.insert_resource(VertexApp::new());
     commands.insert_resource(ClearColor(Srgba::new(0.9, 0.9, 0.9, 1.0).into()));
     commands.insert_resource(TextPainter::new());
-    commands.insert_resource(Puzzle::new());
 
+    commands.spawn(Puzzle::new());
     commands.spawn(ColorPicker::new());
-
-    commands.write_message(FileMessage::Opened(
-        FileType::ReferenceImage,
-        PathBuf::from("/home/wade/Documents/vertex/potato.jpg"),
-    ));
-
-    commands.write_message(FileMessage::Opened(
-        FileType::Puzzle,
-        PathBuf::from("/home/wade/Documents/vertex/puzzle.txt"),
-    ));
 
     // for mut window in windows.iter_mut() {
     //     // window.set_maximized(true);
@@ -80,20 +79,35 @@ fn startup(mut commands: Commands, mut _windows: Query<&mut Window, With<Primary
     // }
 }
 
-fn on_fixed_tick(mut puzzle: ResMut<Puzzle>) {
+fn step_puzzle(mut puzzle: Single<&mut Puzzle>) {
     puzzle.step();
 }
 
-fn on_load_puzzle(mut puzzle: ResMut<Puzzle>, mut msg: MessageReader<FileMessage>) {
+fn on_load_puzzle(
+    mut commands: Commands,
+    mut puzzle: Single<&mut Puzzle>,
+    mut msg: MessageReader<FileMessage>,
+) {
     for msg in msg.read() {
-        let path = if let FileMessage::Opened(FileType::Puzzle, path) = msg {
-            path
+        let (filetype, path) = if let FileMessage::Opened(filetype, path) = msg {
+            (filetype, path)
         } else {
             continue;
         };
 
+        match filetype {
+            FileType::Any => (),
+            FileType::Puzzle => (),
+            FileType::ReferenceImage => continue,
+        }
+
         if let Ok(p) = puzzle_from_file(&path) {
-            *puzzle = p;
+            **puzzle = p;
+
+            commands.write_message(TextMessage::new(format!(
+                "Opened puzzle at \"{}\"",
+                path.display()
+            )));
         }
     }
 }
@@ -103,12 +117,27 @@ fn on_input_tick(
     keys: Res<ButtonInput<KeyCode>>,
     window: Single<&Window, With<PrimaryWindow>>,
     mut app: ResMut<VertexApp>,
-    mut puzzle: ResMut<Puzzle>,
+    mut puzzle: Single<&mut Puzzle>,
+    camera: Single<(&Camera, &GlobalTransform)>,
 ) {
-    if let Some(p) = window.cursor_position() {
-        let dims = window.size();
-        let x = p - dims / 2.0;
-        app.mouse_pos = Some(x.with_y(-x.y))
+    let (camera, camera_transform) = *camera;
+
+    // if let Some(p) = window.cursor_position() {
+    //     let dims = window.size();
+    //     let x = p - dims / 2.0;
+    //     app.mouse_pos = Some(x.with_y(-x.y))
+    // }
+
+    // check if the cursor is inside the window and get its position
+    // then, ask bevy to convert into world coordinates, and truncate to discard Z
+    if let Some(world_position) = window
+        .cursor_position()
+        .and_then(|cursor| camera.viewport_to_world(camera_transform, cursor).ok())
+        .map(|ray| ray.origin.truncate())
+    {
+        app.mouse_pos = Some(world_position);
+    } else {
+        app.mouse_pos = None;
     }
 
     // keyboard presses
@@ -131,7 +160,42 @@ const VERTEX_Z_2: f32 = 0.21;
 const ACTIVE_LINE_Z: f32 = 0.22;
 const CURSOR_Z: f32 = 0.3;
 
-fn draw_puzzle(mut painter: ShapePainter, app: Res<VertexApp>, puzzle: Res<Puzzle>) {
+fn draw_puzzle(
+    mut painter: ShapePainter,
+    app: Res<VertexApp>,
+    lut: Res<SpatialLookup>,
+    puzzle: Single<&Puzzle>,
+    camera: Single<&Transform, With<Camera>>,
+) {
+    let scale = camera.scale.x;
+
+    for occ in lut.occupied() {
+        draw_grid(&mut painter, occ, 3.0 * scale, GRAY.with_alpha(0.3));
+    }
+
+    if let Some(p) = app.mouse_pos {
+        for g in grid::local_quad(p) {
+            draw_grid(&mut painter, g, 2.0 * scale, BLUE);
+
+            if let Some(vertices) = lut.lup(g) {
+                for vid in vertices {
+                    if let Some(v) = puzzle.vertex_n(*vid) {
+                        draw_hollow_circle(
+                            &mut painter,
+                            v.pos,
+                            1000.0,
+                            20.0 * scale,
+                            4.0 * scale,
+                            GREEN,
+                        );
+                    }
+                }
+            }
+        }
+        let g = grid::to_grid(p);
+        draw_grid(&mut painter, g, 2.0 * scale, RED);
+    }
+
     for (a, b, c, color) in puzzle.triangles() {
         draw_triangle(
             &mut painter,
@@ -155,7 +219,14 @@ fn draw_puzzle(mut painter: ShapePainter, app: Res<VertexApp>, puzzle: Res<Puzzl
             let c = a.pos.lerp(b.pos, 0.5);
             for (v, c) in [(a.pos, c), (b.pos, c)] {
                 let r = v.lerp(c, e.length_animation.actual);
-                draw_line(&mut painter, v, r, z, e.thickness_animation.actual, BLACK);
+                draw_line(
+                    &mut painter,
+                    v,
+                    r,
+                    z,
+                    e.thickness_animation.actual * scale,
+                    BLACK,
+                );
             }
             if !complete && app.draw_hidden_edges {
                 draw_line(
@@ -163,58 +234,71 @@ fn draw_puzzle(mut painter: ShapePainter, app: Res<VertexApp>, puzzle: Res<Puzzl
                     a.pos,
                     b.pos,
                     HIDDEN_EDGE_Z,
-                    3.0,
+                    3.0 * scale,
                     GRAY.with_alpha(0.2),
                 );
             }
         }
 
-        for v in puzzle.vertices() {
+        for (_, v) in puzzle.vertices() {
             if v.marker_radius.actual < 1.0 {
                 continue;
             }
 
-            draw_circle(&mut painter, v.pos, VERTEX_Z, v.marker_radius.actual, BLACK);
+            draw_circle(
+                &mut painter,
+                v.pos,
+                VERTEX_Z,
+                v.marker_radius.actual * scale,
+                BLACK,
+            );
             draw_circle(
                 &mut painter,
                 v.pos,
                 VERTEX_Z_2,
-                v.marker_radius.actual - 4.0,
+                (v.marker_radius.actual - 4.0) * scale,
                 WHITE,
             );
 
             if app.draw_missing_edge_indicators {
                 let total_edges = v.invisible_count + v.visible_count;
                 for i in 0..v.invisible_count {
-                    let r = 20.0;
+                    let r = 20.0 * scale;
                     let a = std::f32::consts::PI * (0.5 + 2.0 * i as f32 / total_edges as f32);
                     let p = v.pos + Vec2::from_angle(a) * r;
-                    draw_circle(&mut painter, p, VERTEX_Z_2, 4.0, BLACK);
+                    draw_circle(&mut painter, p, VERTEX_Z_2, 4.0 * scale, BLACK);
                 }
             }
 
             if v.is_clicked {
-                draw_circle(&mut painter, v.pos, VERTEX_Z_2, 8.0, RED);
+                draw_circle(&mut painter, v.pos, VERTEX_Z_2, 8.0 * scale, RED);
             }
             if v.is_hovered {
-                draw_circle(&mut painter, v.pos, VERTEX_Z_2, 8.0, GREEN);
+                draw_circle(&mut painter, v.pos, VERTEX_Z_2, 8.0 * scale, GREEN);
             }
             if v.is_follow() {
-                draw_circle(&mut painter, v.pos, VERTEX_Z_2, 8.0, BLUE);
+                draw_circle(&mut painter, v.pos, VERTEX_Z_2, 8.0 * scale, BLUE);
             }
         }
     }
 
     if let Some(p) = app.mouse_pos {
-        draw_circle(&mut painter, p, CURSOR_Z, 5.0, GRAY.with_alpha(0.3));
+        draw_circle(&mut painter, p, CURSOR_Z, 5.0 * scale, GRAY.with_alpha(0.3));
     }
 
-    draw_cursor_line(&mut painter, &puzzle);
+    draw_cursor_line(&mut painter, &puzzle, scale);
 }
 
-fn draw_cursor_line(painter: &mut ShapePainter, puzzle: &Puzzle) -> Option<()> {
+fn draw_cursor_line(painter: &mut ShapePainter, puzzle: &Puzzle, scale: f32) -> Option<()> {
     let line = puzzle.active_line()?;
     let start = puzzle.vertex_n(line.0)?;
-    draw_line(painter, start.pos, line.1, ACTIVE_LINE_Z, 3.0, ORANGE);
+    draw_line(
+        painter,
+        start.pos,
+        line.1,
+        ACTIVE_LINE_Z,
+        3.0 * scale,
+        ORANGE,
+    );
     Some(())
 }
