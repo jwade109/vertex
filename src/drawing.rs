@@ -34,6 +34,13 @@ pub fn draw_grid(painter: &mut ShapePainter, g: IVec2, t: f32, color: Srgba) {
     draw_rect(painter, origin, dims, t, color);
 }
 
+pub fn fill_grid(painter: &mut ShapePainter, g: IVec2, color: Srgba) {
+    let bounds = crate::grid::grid_bounds(g);
+    let origin = bounds.0;
+    let dims = bounds.1 - bounds.0;
+    fill_rect(painter, origin, dims, color);
+}
+
 pub fn draw_circle(painter: &mut ShapePainter, p: Vec2, z: f32, r: f32, color: Srgba) {
     if r < 0.01 {
         return;

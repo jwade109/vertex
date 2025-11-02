@@ -1,6 +1,8 @@
 use crate::app::VertexApp;
+use crate::cursor::EditorMode;
 use crate::file_open_system::*;
 use crate::puzzle::*;
+use crate::sounds::*;
 use crate::text_alerts::TextMessage;
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts, EguiPlugin, EguiPrimaryContextPass};
@@ -13,7 +15,10 @@ impl Plugin for EguiEditor {
         app.add_plugins(EguiPlugin::default())
             .add_message::<SavePuzzle>()
             .add_systems(Update, save_puzzle_system)
-            .add_systems(EguiPrimaryContextPass, editor_ui_system);
+            .add_systems(
+                EguiPrimaryContextPass,
+                editor_ui_system.run_if(not(in_state(EditorMode::Play))),
+            );
     }
 }
 
@@ -90,8 +95,14 @@ fn editor_ui_system(
 
             let mut scale = camera.scale.x;
 
-            ui.add(egui::Slider::new(&mut camera.translation.x, -50000.0..=50000.0));
-            ui.add(egui::Slider::new(&mut camera.translation.y, -50000.0..=50000.0));
+            ui.add(egui::Slider::new(
+                &mut camera.translation.x,
+                -50000.0..=50000.0,
+            ));
+            ui.add(egui::Slider::new(
+                &mut camera.translation.y,
+                -50000.0..=50000.0,
+            ));
             ui.add(egui::Slider::new(
                 &mut camera.translation.z,
                 -5000.0..=5000.0,
@@ -150,9 +161,7 @@ fn editor_ui_system(
 
             ui.separator();
 
-            ui.checkbox(&mut app.draw_hidden_edges, "Hidden Edges");
             ui.checkbox(&mut app.puzzle_locked, "Puzzle Locked");
-            ui.checkbox(&mut app.draw_missing_edge_indicators, "Edge Indicators");
             ui.checkbox(&mut app.draw_edges, "Draw Edges");
 
             ui.separator();
@@ -175,6 +184,14 @@ fn editor_ui_system(
 
             if ui.button("Send Text Alert").clicked() {
                 commands.write_message(TextMessage::new("hello!"));
+            }
+
+            ui.separator();
+
+            for sfx in SoundEffect::all() {
+                if ui.button(format!("{:?}", sfx)).clicked() {
+                    commands.write_message(sfx);
+                }
             }
         });
 }

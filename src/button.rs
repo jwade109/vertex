@@ -1,5 +1,6 @@
 use crate::app::VertexApp;
 use crate::color_picker::ColorPicker;
+use crate::cursor::*;
 use crate::math::*;
 use crate::puzzle::Puzzle;
 use crate::reference_image::RefImageWindow;
@@ -295,8 +296,9 @@ fn propagate_cursor_position(
     mut images: Query<&mut RefImageWindow>,
     mut puzzle: Single<&mut Puzzle>,
     app: Res<VertexApp>,
+    cursor: Res<CursorState>,
 ) {
-    let pos = app.mouse_pos;
+    let pos = cursor.mouse_pos;
 
     let mut once = TakeOnce::from_option(pos);
 

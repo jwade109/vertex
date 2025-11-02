@@ -9,10 +9,15 @@ pub fn to_grid(p: Vec2) -> IVec2 {
     p.floor().as_ivec2()
 }
 
-pub fn grid_bounds(p: IVec2) -> (Vec2, Vec2) {
-    let lower = p.as_vec2() * GRID_SIZE;
-    let upper = (p + IVec2::ONE).as_vec2() * GRID_SIZE;
+pub fn grid_bounds(g: IVec2) -> (Vec2, Vec2) {
+    let lower = g.as_vec2() * GRID_SIZE;
+    let upper = (g + IVec2::ONE).as_vec2() * GRID_SIZE;
     (lower, upper)
+}
+
+pub fn grid_center(g: IVec2) -> Vec2 {
+    let (lower, upper) = grid_bounds(g);
+    (upper + lower) / 2.0
 }
 
 pub fn local_quad(p: Vec2) -> [IVec2; 4] {
@@ -27,6 +32,29 @@ pub fn local_quad(p: Vec2) -> [IVec2; 4] {
         (false, true) => [g, g - IVec2::X, g + IVec2::Y, g + IVec2::new(-1, 1)],
         (false, false) => [g, g - IVec2::X, g - IVec2::Y, g - IVec2::ONE],
     }
+}
+
+pub fn line_to_grid(p: Vec2, q: Vec2) -> Vec<IVec2> {
+    todo!()
+}
+
+pub fn grids_in_radius(p: Vec2, r: f32) -> Vec<IVec2> {
+    let center = to_grid(p);
+    let offset = (r / GRID_SIZE).ceil() as i32;
+
+    let mut ret = Vec::new();
+    for xoff in -offset..=offset {
+        for yoff in -offset..=offset {
+            let g = center + IVec2::new(xoff, yoff);
+            let gc = grid_center(g);
+            if gc.distance(p) > GRID_SIZE + r {
+                continue;
+            }
+            ret.push(g);
+        }
+    }
+
+    ret
 }
 
 #[derive(Resource, Default)]

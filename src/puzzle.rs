@@ -334,6 +334,7 @@ impl Puzzle {
 
     fn remove_edge(&mut self, a: usize, b: usize) {
         let (a, b) = (a.min(b), a.max(b));
+        info!("Removing edge between {} and {}", a, b);
         self.edges.remove(&(a, b));
         self.update();
     }
@@ -343,10 +344,20 @@ impl Puzzle {
             return;
         }
 
+        info!("Adding edge between {} and {}, state = {}", a, b, state);
+
         let min = a.min(b);
         let max = a.max(b);
+
+        let key = (min, max);
+
+        if self.edges.contains_key(&key) {
+            info!("Edge already exists");
+            return;
+        }
+
         let edge = Edge::new(min, max, state);
-        self.edges.insert((min, max), edge);
+        self.edges.insert(key, edge);
         self.update();
     }
 

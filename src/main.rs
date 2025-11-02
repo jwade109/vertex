@@ -2,14 +2,17 @@ mod app;
 mod button;
 mod camera;
 mod color_picker;
+mod cursor;
 mod drawing;
 mod edge;
 mod editor_ui;
 mod file_open_system;
 mod grid;
 mod math;
+mod particles;
 mod puzzle;
 mod reference_image;
+mod sounds;
 mod take_once;
 mod text;
 mod text_alerts;
@@ -20,12 +23,14 @@ use crate::app::*;
 use crate::button::*;
 use crate::camera::*;
 use crate::color_picker::ColorPicker;
+use crate::cursor::*;
 use crate::drawing::*;
 use crate::editor_ui::EguiEditor;
 use crate::file_open_system::*;
 use crate::grid::*;
 use crate::math::*;
 use crate::reference_image::*;
+use crate::sounds::*;
 use crate::text::*;
 use crate::text_alerts::*;
 
@@ -52,12 +57,15 @@ fn main() {
         .add_plugins(TextAlertPlugin)
         .add_plugins(CameraControllerPlugin)
         .add_plugins(GridPlugin)
+        .add_plugins(SoundPlugin)
+        .add_plugins(CursorPlugin)
         .add_systems(Startup, startup)
         .add_systems(FixedUpdate, step_puzzle)
         .add_systems(
             Update,
             (on_input_tick, draw_puzzle, text_system, on_load_puzzle).chain(),
         )
+        .add_systems(Update, draw_eraser.run_if(in_state(EditorMode::Eraser)))
         .run();
 }
 
@@ -69,14 +77,6 @@ fn startup(mut commands: Commands, mut _windows: Query<&mut Window, With<Primary
 
     commands.spawn(Puzzle::new());
     commands.spawn(ColorPicker::new());
-
-    // for mut window in windows.iter_mut() {
-    //     // window.set_maximized(true);
-    //     window.mode = bevy::window::WindowMode::Fullscreen(
-    //         MonitorSelection::Current,
-    //         VideoModeSelection::Current,
-    //     );
-    // }
 }
 
 fn step_puzzle(mut puzzle: Single<&mut Puzzle>) {
@@ -116,34 +116,27 @@ fn on_input_tick(
     mut commands: Commands,
     keys: Res<ButtonInput<KeyCode>>,
     window: Single<&Window, With<PrimaryWindow>>,
-    mut app: ResMut<VertexApp>,
+    mut cursor: ResMut<CursorState>,
     mut puzzle: Single<&mut Puzzle>,
     camera: Single<(&Camera, &GlobalTransform)>,
 ) {
     let (camera, camera_transform) = *camera;
 
-    // if let Some(p) = window.cursor_position() {
-    //     let dims = window.size();
-    //     let x = p - dims / 2.0;
-    //     app.mouse_pos = Some(x.with_y(-x.y))
-    // }
-
-    // check if the cursor is inside the window and get its position
-    // then, ask bevy to convert into world coordinates, and truncate to discard Z
     if let Some(world_position) = window
         .cursor_position()
         .and_then(|cursor| camera.viewport_to_world(camera_transform, cursor).ok())
         .map(|ray| ray.origin.truncate())
     {
-        app.mouse_pos = Some(world_position);
+        cursor.mouse_pos = Some(world_position);
     } else {
-        app.mouse_pos = None;
+        cursor.mouse_pos = None;
     }
 
     // keyboard presses
     if keys.just_pressed(KeyCode::KeyQ) {
-        if let Some(p) = app.mouse_pos {
+        if let Some(p) = cursor.mouse_pos {
             puzzle.add_point(p, true);
+            commands.write_message(SoundEffect::LightPop);
         }
     }
 
@@ -160,41 +153,41 @@ const VERTEX_Z_2: f32 = 0.21;
 const ACTIVE_LINE_Z: f32 = 0.22;
 const CURSOR_Z: f32 = 0.3;
 
+const ERASER_WORLD_WIDTH: f32 = 120.0;
+
+fn draw_eraser(
+    mut painter: ShapePainter,
+    cursor: Res<CursorState>,
+    lut: Res<SpatialLookup>,
+    puzzle: Single<&Puzzle>,
+) {
+    let p = match cursor.mouse_pos {
+        Some(p) => p,
+        _ => return,
+    };
+
+    draw_hollow_circle(&mut painter, p, 100.0, ERASER_WORLD_WIDTH, 2.0, RED);
+
+    for g in grid::grids_in_radius(p, ERASER_WORLD_WIDTH) {
+        draw_grid(&mut painter, g, 2.0, GRAY);
+
+        for vid in lut.lup(g).iter().flat_map(|e| e.iter()) {
+            if let Some(v) = puzzle.vertex_n(*vid) {
+                draw_hollow_circle(&mut painter, v.pos, 100.0, 25.0, 2.0, GREEN);
+            }
+        }
+    }
+}
+
 fn draw_puzzle(
     mut painter: ShapePainter,
     app: Res<VertexApp>,
-    lut: Res<SpatialLookup>,
+    cursor: Res<CursorState>,
     puzzle: Single<&Puzzle>,
     camera: Single<&Transform, With<Camera>>,
+    editor_mode: Res<State<EditorMode>>,
 ) {
     let scale = camera.scale.x;
-
-    for occ in lut.occupied() {
-        draw_grid(&mut painter, occ, 3.0 * scale, GRAY.with_alpha(0.3));
-    }
-
-    if let Some(p) = app.mouse_pos {
-        for g in grid::local_quad(p) {
-            draw_grid(&mut painter, g, 2.0 * scale, BLUE);
-
-            if let Some(vertices) = lut.lup(g) {
-                for vid in vertices {
-                    if let Some(v) = puzzle.vertex_n(*vid) {
-                        draw_hollow_circle(
-                            &mut painter,
-                            v.pos,
-                            1000.0,
-                            20.0 * scale,
-                            4.0 * scale,
-                            GREEN,
-                        );
-                    }
-                }
-            }
-        }
-        let g = grid::to_grid(p);
-        draw_grid(&mut painter, g, 2.0 * scale, RED);
-    }
 
     for (a, b, c, color) in puzzle.triangles() {
         draw_triangle(
@@ -208,6 +201,8 @@ fn draw_puzzle(
     }
 
     let complete = puzzle.is_complete();
+
+    let draw_hidden_edges = *editor_mode != EditorMode::Play;
 
     if app.draw_edges {
         for (a, b, e) in puzzle.edges() {
@@ -228,7 +223,7 @@ fn draw_puzzle(
                     BLACK,
                 );
             }
-            if !complete && app.draw_hidden_edges {
+            if !complete && draw_hidden_edges {
                 draw_line(
                     &mut painter,
                     a.pos,
@@ -260,7 +255,7 @@ fn draw_puzzle(
                 WHITE,
             );
 
-            if app.draw_missing_edge_indicators {
+            if *editor_mode == EditorMode::Play {
                 let total_edges = v.invisible_count + v.visible_count;
                 for i in 0..v.invisible_count {
                     let r = 20.0 * scale;
@@ -282,7 +277,7 @@ fn draw_puzzle(
         }
     }
 
-    if let Some(p) = app.mouse_pos {
+    if let Some(p) = cursor.mouse_pos {
         draw_circle(&mut painter, p, CURSOR_Z, 5.0 * scale, GRAY.with_alpha(0.3));
     }
 
