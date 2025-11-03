@@ -1,8 +1,10 @@
+#![allow(unused)]
+
 use crate::puzzle::Puzzle;
 use bevy::prelude::*;
 use std::collections::{HashMap, HashSet};
 
-pub const GRID_SIZE: f32 = 200.0;
+pub const GRID_SIZE: f32 = 100.0;
 
 pub fn to_grid(p: Vec2) -> IVec2 {
     let p = p / GRID_SIZE;
@@ -47,7 +49,7 @@ pub fn grids_in_radius(p: Vec2, r: f32) -> Vec<IVec2> {
         for yoff in -offset..=offset {
             let g = center + IVec2::new(xoff, yoff);
             let gc = grid_center(g);
-            if gc.distance(p) > GRID_SIZE + r {
+            if gc.distance(p) > (GRID_SIZE / 2.0f32.sqrt()) + r {
                 continue;
             }
             ret.push(g);

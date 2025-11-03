@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use crate::drawing::*;
 use crate::math::*;
 use crate::take_once::*;
@@ -293,23 +295,23 @@ impl ColorPicker {
 
         fill_ring(painter, p, PICKER_FILL_Z, r1, r2, WHITE.with_alpha(alpha));
         fill_ring(painter, p, PICKER_FILL_Z, r2, r3, WHITE.with_alpha(alpha));
-        draw_hollow_circle(painter, p, PICKER_LINES_Z, r1, t, BLACK.with_alpha(alpha));
-        draw_hollow_circle(painter, p, PICKER_LINES_Z, r2, t, BLACK.with_alpha(alpha));
-        draw_hollow_circle(painter, p, PICKER_LINES_Z, r3, t, BLACK.with_alpha(alpha));
+        draw_circle(painter, p, PICKER_LINES_Z, r1, t, BLACK.with_alpha(alpha));
+        draw_circle(painter, p, PICKER_LINES_Z, r2, t, BLACK.with_alpha(alpha));
+        draw_circle(painter, p, PICKER_LINES_Z, r3, t, BLACK.with_alpha(alpha));
 
         for node in self.samplers() {
             if node.radius.actual < 2.0 {
                 continue;
             }
 
-            draw_circle(
+            fill_circle(
                 painter,
                 node.pos,
                 PICKER_NODE_FILL_Z,
                 node.radius.actual,
                 node.color.with_alpha(alpha),
             );
-            draw_hollow_circle(
+            draw_circle(
                 painter,
                 node.pos,
                 PICKER_NODE_LINES_Z,
@@ -320,8 +322,8 @@ impl ColorPicker {
         }
 
         if let Some(c) = self.preview_color() {
-            draw_circle(painter, p, PICKER_FILL_Z, r1 * 0.8, c);
-            draw_hollow_circle(painter, p, PICKER_LINES_Z, r1 * 0.8, 3.0, BLACK);
+            fill_circle(painter, p, PICKER_FILL_Z, r1 * 0.8, c);
+            draw_circle(painter, p, PICKER_LINES_Z, r1 * 0.8, 3.0, BLACK);
             text.set_position(p.extend(100.0));
             text.set_height(48.0);
             text.text(format!("{:?}", c));

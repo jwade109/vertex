@@ -5,16 +5,12 @@ use crate::triangle::*;
 use crate::vertex::*;
 use bevy::color::palettes::basic::*;
 use bevy::prelude::*;
-use rand::seq::IndexedRandom;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::PathBuf;
-
-const CLICK_TARGET_SIZE_PIXELS: f32 = 50.0;
+use std::path::*;
 
 #[derive(Component)]
 pub struct Puzzle {
-    palette: Vec<Srgba>,
     next_vertex_id: usize,
     vertices: HashMap<usize, Vertex>,
     edges: HashMap<(usize, usize), Edge>,
@@ -22,21 +18,21 @@ pub struct Puzzle {
     active_line: Option<(usize, Vec2)>,
 }
 
+fn random_color() -> Srgba {
+    let r = rand();
+    let g = rand();
+    let b = rand();
+    Srgba::new(r, g, b, 1.0).mix(&WHITE, 0.2)
+}
+
+#[allow(unused)]
 fn generate_color_palette(n: usize) -> Vec<Srgba> {
-    (0..n)
-        .map(|_| {
-            let r = rand();
-            let g = rand();
-            let b = rand();
-            Srgba::new(r, g, b, 1.0).mix(&WHITE, 0.2)
-        })
-        .collect()
+    (0..n).map(|_| random_color()).collect()
 }
 
 impl Puzzle {
     pub fn empty() -> Self {
         Self {
-            palette: generate_color_palette(8),
             next_vertex_id: 0,
             vertices: HashMap::new(),
             edges: HashMap::new(),
@@ -104,8 +100,8 @@ impl Puzzle {
                     if self.triangles.contains_key(&key) {
                         continue;
                     }
-                    let color = self.palette.choose(&mut rand::rng()).unwrap();
-                    let t = Triangle::new(u, v, w, *color);
+                    let color = random_color();
+                    let t = Triangle::new(u, v, w, color);
                     self.triangles.insert(key, t);
                 }
             }
@@ -146,7 +142,7 @@ impl Puzzle {
                 self.vertices.insert(id, new_vertex);
                 id
             };
-            self.add_edge(new_id, other, true);
+            self.add_edge(new_id, other, false);
             self.active_line = Some((new_id, pos));
         } else {
             let id = self.next_vertex_id();
@@ -205,7 +201,6 @@ impl Puzzle {
     }
 
     pub fn randomize(&mut self) {
-        self.palette = generate_color_palette(8);
         self.vertices.clear();
         self.edges.clear();
         self.triangles.clear();
@@ -288,15 +283,21 @@ impl Puzzle {
         })
     }
 
-    pub fn remove_vertex(&mut self, id: usize) {
-        self.vertices.remove_entry(&id);
-        self.edges.retain(|_, e| !e.has_vertex(id));
-        self.update();
-        // TODO faces
-    }
+    // pub fn remove_vertex(&mut self, id: usize) {
+    //     info!("Removing vertex {}", id);
+    //     self.vertices.remove_entry(&id);
+    //     self.edges.retain(|_, e| !e.has_vertex(id));
+    //     self.update();
+    //     // TODO faces
+    // }
 
     fn on_right_click_down(&mut self) {
-        self.vertices.retain(|_, v| !v.is_hovered);
+        self.vertices.retain(|id, v| {
+            if v.is_hovered {
+                info!("Removing vertex {}", id);
+            }
+            !v.is_hovered
+        });
         self.update();
     }
 
@@ -321,11 +322,11 @@ impl Puzzle {
             .find_map(|(id, v)| v.is_clicked.then(|| *id))
     }
 
-    fn get_edge_mut(&mut self, a: usize, b: usize) -> Option<&mut Edge> {
-        let emin = a.min(b);
-        let emax = a.max(b);
-        self.edges.get_mut(&(emin, emax))
-    }
+    // fn get_edge_mut(&mut self, a: usize, b: usize) -> Option<&mut Edge> {
+    //     let emin = a.min(b);
+    //     let emax = a.max(b);
+    //     self.edges.get_mut(&(emin, emax))
+    // }
 
     fn is_edge(&self, a: usize, b: usize) -> bool {
         let (a, b) = (a.min(b), a.max(b));
@@ -369,7 +370,7 @@ impl Puzzle {
             if self.is_edge(c, h) {
                 self.remove_edge(c, h);
             } else {
-                self.add_edge(c, h, true)
+                self.add_edge(c, h, false)
             }
         }
 
@@ -380,7 +381,7 @@ impl Puzzle {
         self.update();
     }
 
-    pub fn set_cursor_position(&mut self, p: &mut TakeOnce<Vec2>) {
+    pub fn set_cursor_position(&mut self, p: &mut TakeOnce<Vec2>, scale: f32) {
         let pos = p.take();
         for (_, v) in &mut self.vertices {
             if !v.is_follow() {
@@ -401,8 +402,10 @@ impl Puzzle {
             }
         }
 
+        const CLICK_TARGET_SIZE_PIXELS: f32 = 50.0;
+
         if let Some(pos) = pos {
-            if let Some(id) = self.vertex_at(pos, CLICK_TARGET_SIZE_PIXELS) {
+            if let Some(id) = self.vertex_at(pos, CLICK_TARGET_SIZE_PIXELS * scale) {
                 if let Some(v) = self.vertices.get_mut(&id) {
                     v.is_hovered = true;
                 }
@@ -532,7 +535,7 @@ impl From<PuzzleRepr> for Puzzle {
             })
             .collect();
         for (a, b) in value.edges {
-            puzzle.add_edge(a, b, true);
+            puzzle.add_edge(a, b, false);
         }
 
         for (a, b, c, color) in value.triangles {
@@ -563,7 +566,7 @@ impl From<&Puzzle> for PuzzleRepr {
     }
 }
 
-pub fn puzzle_to_file(puzzle: &Puzzle, filepath: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn puzzle_to_file(puzzle: &Puzzle, filepath: &Path) -> Result<(), Box<dyn std::error::Error>> {
     let repr = PuzzleRepr::from(puzzle);
     let s = serde_yaml::to_string(&repr)?;
     std::fs::write(filepath, s)?;

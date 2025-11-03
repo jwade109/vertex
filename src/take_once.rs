@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use bevy::input::mouse::*;
 use bevy::input::*;
 use bevy::prelude::*;

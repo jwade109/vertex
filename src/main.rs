@@ -26,9 +26,11 @@ use crate::color_picker::ColorPicker;
 use crate::cursor::*;
 use crate::drawing::*;
 use crate::editor_ui::EguiEditor;
+use crate::editor_ui::*;
 use crate::file_open_system::*;
 use crate::grid::*;
 use crate::math::*;
+use crate::particles::*;
 use crate::reference_image::*;
 use crate::sounds::*;
 use crate::text::*;
@@ -59,6 +61,7 @@ fn main() {
         .add_plugins(GridPlugin)
         .add_plugins(SoundPlugin)
         .add_plugins(CursorPlugin)
+        .add_plugins(ParticlePlugin)
         .add_systems(Startup, startup)
         .add_systems(FixedUpdate, step_puzzle)
         .add_systems(
@@ -87,6 +90,7 @@ fn on_load_puzzle(
     mut commands: Commands,
     mut puzzle: Single<&mut Puzzle>,
     mut msg: MessageReader<FileMessage>,
+    mut open: ResMut<OpenPuzzle>,
 ) {
     for msg in msg.read() {
         let (filetype, path) = if let FileMessage::Opened(filetype, path) = msg {
@@ -108,6 +112,10 @@ fn on_load_puzzle(
                 "Opened puzzle at \"{}\"",
                 path.display()
             )));
+
+            open.0 = Some(path.clone());
+
+            commands.write_message(SoundEffect::UiPopUp);
         }
     }
 }
@@ -153,27 +161,44 @@ const VERTEX_Z_2: f32 = 0.21;
 const ACTIVE_LINE_Z: f32 = 0.22;
 const CURSOR_Z: f32 = 0.3;
 
-const ERASER_WORLD_WIDTH: f32 = 120.0;
+const ERASER_SCREEN_WIDTH: f32 = 120.0;
 
 fn draw_eraser(
     mut painter: ShapePainter,
     cursor: Res<CursorState>,
+    camera: Single<&Transform, With<Camera>>,
     lut: Res<SpatialLookup>,
     puzzle: Single<&Puzzle>,
 ) {
+    let scale = camera.scale.x;
+
     let p = match cursor.mouse_pos {
         Some(p) => p,
         _ => return,
     };
 
-    draw_hollow_circle(&mut painter, p, 100.0, ERASER_WORLD_WIDTH, 2.0, RED);
+    let eraser_world_radius = ERASER_SCREEN_WIDTH * scale;
 
-    for g in grid::grids_in_radius(p, ERASER_WORLD_WIDTH) {
+    draw_circle(
+        &mut painter,
+        p,
+        100.0,
+        eraser_world_radius,
+        2.0 * scale,
+        RED,
+    );
+
+    for g in grid::grids_in_radius(p, eraser_world_radius) {
         draw_grid(&mut painter, g, 2.0, GRAY);
 
         for vid in lut.lup(g).iter().flat_map(|e| e.iter()) {
             if let Some(v) = puzzle.vertex_n(*vid) {
-                draw_hollow_circle(&mut painter, v.pos, 100.0, 25.0, 2.0, GREEN);
+                let color = if p.distance(v.pos) < eraser_world_radius {
+                    GREEN
+                } else {
+                    GREEN.with_alpha(0.2)
+                };
+                draw_circle(&mut painter, v.pos, 100.0, 25.0, 2.0, color);
             }
         }
     }
@@ -202,7 +227,7 @@ fn draw_puzzle(
 
     let complete = puzzle.is_complete();
 
-    let draw_hidden_edges = *editor_mode != EditorMode::Play;
+    let is_play = *editor_mode == EditorMode::Play;
 
     if app.draw_edges {
         for (a, b, e) in puzzle.edges() {
@@ -223,7 +248,7 @@ fn draw_puzzle(
                     BLACK,
                 );
             }
-            if !complete && draw_hidden_edges {
+            if !complete && !is_play {
                 draw_line(
                     &mut painter,
                     a.pos,
@@ -240,45 +265,49 @@ fn draw_puzzle(
                 continue;
             }
 
-            draw_circle(
-                &mut painter,
-                v.pos,
-                VERTEX_Z,
-                v.marker_radius.actual * scale,
-                BLACK,
-            );
-            draw_circle(
-                &mut painter,
-                v.pos,
-                VERTEX_Z_2,
-                (v.marker_radius.actual - 4.0) * scale,
-                WHITE,
-            );
+            if is_play {
+                fill_circle(
+                    &mut painter,
+                    v.pos,
+                    VERTEX_Z,
+                    v.marker_radius.actual * scale,
+                    BLACK,
+                );
+                fill_circle(
+                    &mut painter,
+                    v.pos,
+                    VERTEX_Z_2,
+                    (v.marker_radius.actual - 4.0) * scale,
+                    WHITE,
+                );
 
-            if *editor_mode == EditorMode::Play {
                 let total_edges = v.invisible_count + v.visible_count;
-                for i in 0..v.invisible_count {
+                for i in 0..total_edges {
+                    let color = if i < v.invisible_count { BLACK } else { GRAY };
                     let r = 20.0 * scale;
                     let a = std::f32::consts::PI * (0.5 + 2.0 * i as f32 / total_edges as f32);
                     let p = v.pos + Vec2::from_angle(a) * r;
-                    draw_circle(&mut painter, p, VERTEX_Z_2, 4.0 * scale, BLACK);
+                    fill_circle(&mut painter, p, VERTEX_Z_2, 4.0 * scale, color);
                 }
+            } else {
+                let dims = Vec2::splat(10.0) * scale;
+                draw_rect(&mut painter, v.pos - dims / 2.0, dims, 1.0 * scale, BLACK);
             }
 
             if v.is_clicked {
-                draw_circle(&mut painter, v.pos, VERTEX_Z_2, 8.0 * scale, RED);
+                fill_circle(&mut painter, v.pos, VERTEX_Z_2, 8.0 * scale, RED);
             }
             if v.is_hovered {
-                draw_circle(&mut painter, v.pos, VERTEX_Z_2, 8.0 * scale, GREEN);
+                fill_circle(&mut painter, v.pos, VERTEX_Z_2, 8.0 * scale, GREEN);
             }
             if v.is_follow() {
-                draw_circle(&mut painter, v.pos, VERTEX_Z_2, 8.0 * scale, BLUE);
+                fill_circle(&mut painter, v.pos, VERTEX_Z_2, 8.0 * scale, BLUE);
             }
         }
     }
 
     if let Some(p) = cursor.mouse_pos {
-        draw_circle(&mut painter, p, CURSOR_Z, 5.0 * scale, GRAY.with_alpha(0.3));
+        fill_circle(&mut painter, p, CURSOR_Z, 5.0 * scale, GRAY.with_alpha(0.3));
     }
 
     draw_cursor_line(&mut painter, &puzzle, scale);

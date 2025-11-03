@@ -41,7 +41,7 @@ pub fn fill_grid(painter: &mut ShapePainter, g: IVec2, color: Srgba) {
     fill_rect(painter, origin, dims, color);
 }
 
-pub fn draw_circle(painter: &mut ShapePainter, p: Vec2, z: f32, r: f32, color: Srgba) {
+pub fn fill_circle(painter: &mut ShapePainter, p: Vec2, z: f32, r: f32, color: Srgba) {
     if r < 0.01 {
         return;
     }
@@ -54,7 +54,7 @@ pub fn draw_circle(painter: &mut ShapePainter, p: Vec2, z: f32, r: f32, color: S
     painter.set_translation(Vec3::ZERO);
 }
 
-pub fn draw_hollow_circle(
+pub fn draw_circle(
     painter: &mut ShapePainter,
     p: Vec2,
     z: f32,

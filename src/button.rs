@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use crate::app::VertexApp;
 use crate::color_picker::ColorPicker;
 use crate::cursor::*;
@@ -11,6 +13,7 @@ use bevy::color::Srgba;
 use bevy::input::mouse::MouseButtonInput;
 use bevy::prelude::*;
 use bevy_vector_shapes::prelude::*;
+use crate::sounds::SoundEffect;
 
 #[derive(Component, Debug, Clone)]
 pub struct Button {
@@ -286,6 +289,7 @@ fn step_windows(mut commands: Commands, mut query: Query<(Entity, &mut RefImageW
         window.step();
         if window.should_despawn() {
             commands.entity(e).despawn();
+            commands.write_message(SoundEffect::UiTrillDown);
         }
     }
 }
@@ -295,10 +299,12 @@ fn propagate_cursor_position(
     mut buttons: Query<&mut Button>,
     mut images: Query<&mut RefImageWindow>,
     mut puzzle: Single<&mut Puzzle>,
+    camera: Single<&Transform, With<Camera>>,
     app: Res<VertexApp>,
     cursor: Res<CursorState>,
 ) {
     let pos = cursor.mouse_pos;
+    let scale = camera.scale.x;
 
     let mut once = TakeOnce::from_option(pos);
 
@@ -315,9 +321,9 @@ fn propagate_cursor_position(
             image.set_cursor_position(&mut once);
         }
         once.take();
-        puzzle.set_cursor_position(&mut once);
+        puzzle.set_cursor_position(&mut once, scale);
     } else {
-        puzzle.set_cursor_position(&mut once);
+        puzzle.set_cursor_position(&mut once, scale);
         once.take();
         for mut image in &mut images {
             image.set_cursor_position(&mut once);

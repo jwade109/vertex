@@ -7,6 +7,7 @@ use crate::text_alerts::TextMessage;
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts, EguiPlugin, EguiPrimaryContextPass};
 use egui::containers::panel::Side;
+use std::path::PathBuf;
 
 pub struct EguiEditor;
 
@@ -14,6 +15,7 @@ impl Plugin for EguiEditor {
     fn build(&self, app: &mut App) {
         app.add_plugins(EguiPlugin::default())
             .add_message::<SavePuzzle>()
+            .insert_resource(OpenPuzzle(None))
             .add_systems(Update, save_puzzle_system)
             .add_systems(
                 EguiPrimaryContextPass,
@@ -24,8 +26,11 @@ impl Plugin for EguiEditor {
 
 #[derive(Message)]
 pub struct SavePuzzle {
-    filepath: String,
+    filepath: PathBuf,
 }
+
+#[derive(Resource)]
+pub struct OpenPuzzle(pub Option<PathBuf>);
 
 fn save_puzzle_system(
     mut commands: Commands,
@@ -33,18 +38,19 @@ fn save_puzzle_system(
     mut save: MessageReader<SavePuzzle>,
 ) {
     for evt in save.read() {
-        println!("Saving puzzle to {}", &evt.filepath);
+        println!("Saving puzzle to {}", evt.filepath.display());
         match puzzle_to_file(&puzzle, &evt.filepath) {
             Ok(()) => {
                 commands.write_message(TextMessage::new(format!(
                     "Saved puzzle to \"{}\"",
-                    &evt.filepath
+                    evt.filepath.display()
                 )));
             }
             Err(e) => {
                 commands.write_message(TextMessage::new(format!(
                     "Failed to save puzzle to \"{}\": {}",
-                    &evt.filepath, e
+                    evt.filepath.display(),
+                    e
                 )));
             }
         }
@@ -60,6 +66,7 @@ fn editor_ui_system(
     sprites: Query<(Entity, &Sprite, &Transform)>,
     images: Res<Assets<Image>>,
     keys: Res<ButtonInput<KeyCode>>,
+    open_file: Res<OpenPuzzle>,
 ) {
     if keys.just_pressed(KeyCode::KeyE) {
         app.puzzle_locked = true;
@@ -69,9 +76,8 @@ fn editor_ui_system(
     }
 
     if keys.pressed(KeyCode::ControlLeft) && keys.just_pressed(KeyCode::KeyS) {
-        commands.write_message(SavePuzzle {
-            filepath: "puzzle.txt".into(),
-        });
+        let filepath = open_file.0.clone().unwrap_or("puzzle.txt".into());
+        commands.write_message(SavePuzzle { filepath });
     }
 
     if keys.pressed(KeyCode::ControlLeft) && keys.just_pressed(KeyCode::KeyO) {

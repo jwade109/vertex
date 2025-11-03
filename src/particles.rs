@@ -1,10 +1,8 @@
-use crate::app::VertexApp;
 use crate::cursor::*;
 use crate::drawing::*;
 use crate::grid::*;
 use crate::math::random;
 use bevy::prelude::*;
-use bevy_vector_shapes::prelude::*;
 
 pub struct ParticlePlugin;
 
@@ -12,12 +10,7 @@ impl Plugin for ParticlePlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             Update,
-            (
-                add_particles,
-                update_ripples,
-                update_grid_particles,
-                spawn_random_ripples,
-            ),
+            (add_particles, update_ripples, update_grid_particles),
         );
     }
 }
@@ -51,14 +44,6 @@ fn add_particles(
     }
 }
 
-fn spawn_random_ripples(mut commands: Commands, puzzle: Single<&Puzzle>) {
-    for (_, v) in puzzle.vertices() {
-        if random(0.0, 1.0) < 0.001 {
-            commands.spawn(Ripple(v.pos, 0.0));
-        }
-    }
-}
-
 fn update_ripples(
     mut painter: ShapePainter,
     mut commands: Commands,
@@ -73,7 +58,7 @@ fn update_ripples(
             commands.entity(e).despawn();
         }
 
-        draw_hollow_circle(&mut painter, p.0, -100.0, r, 2.0, GRAY.with_alpha(a));
+        draw_circle(&mut painter, p.0, -100.0, r, 2.0, GRAY.with_alpha(a));
     }
 }
 

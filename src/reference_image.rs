@@ -6,6 +6,7 @@ use crate::take_once::*;
 use crate::text::TextPainter;
 use crate::text_alerts::TextMessage;
 use bevy::prelude::*;
+use crate::sounds::SoundEffect;
 
 pub struct ReferenceImagePlugin;
 
@@ -86,6 +87,8 @@ fn insert_new_image(
             "Opened image at \"{}\"",
             path.display()
         )));
+
+        commands.write_message(SoundEffect::UiPopUp);
     }
 
     Ok(())
@@ -140,16 +143,16 @@ fn sync_sprite_to_window(
 }
 
 struct HandleState {
-    is_hovered: bool,
-    is_clicked: bool,
+    // is_hovered: bool,
+    // is_clicked: bool,
     color: Srgba,
 }
 
 impl HandleState {
     fn new(color: Srgba) -> Self {
         Self {
-            is_hovered: false,
-            is_clicked: false,
+            // is_hovered: false,
+            // is_clicked: false,
             color,
         }
     }
@@ -283,8 +286,8 @@ impl RefImageWindow {
 
         let r = self.handle_radius();
         for (corner, handle) in self.handles() {
-            draw_circle(painter, corner, 100.0, r, handle.color);
-            draw_hollow_circle(painter, corner, 100.0, r, 3.0, BLACK);
+            fill_circle(painter, corner, 100.0, r, handle.color);
+            draw_circle(painter, corner, 100.0, r, 3.0, BLACK);
         }
     }
 }
