@@ -1,7 +1,7 @@
 #![allow(unused)]
 
-use crate::math::*;
-pub use crate::puzzle::*;
+use crate::*;
+
 pub use bevy::color::palettes::css::*;
 pub use bevy::color::Srgba;
 use bevy::math::IVec2;
@@ -28,14 +28,14 @@ pub fn draw_rect(painter: &mut ShapePainter, origin: Vec2, dims: Vec2, t: f32, c
 }
 
 pub fn draw_grid(painter: &mut ShapePainter, g: IVec2, t: f32, color: Srgba) {
-    let bounds = crate::grid::grid_bounds(g);
+    let bounds = grid_bounds(g);
     let origin = bounds.0;
     let dims = bounds.1 - bounds.0;
     draw_rect(painter, origin, dims, t, color);
 }
 
 pub fn fill_grid(painter: &mut ShapePainter, g: IVec2, color: Srgba) {
-    let bounds = crate::grid::grid_bounds(g);
+    let bounds = grid_bounds(g);
     let origin = bounds.0;
     let dims = bounds.1 - bounds.0;
     fill_rect(painter, origin, dims, color);

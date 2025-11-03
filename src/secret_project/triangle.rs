@@ -1,5 +1,4 @@
-use crate::math::*;
-use bevy::prelude::*;
+use crate::*;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Triangle {

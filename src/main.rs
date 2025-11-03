@@ -1,40 +1,6 @@
-mod app;
-mod button;
-mod camera;
-mod color_picker;
-mod cursor;
-mod drawing;
-mod edge;
-mod editor_ui;
-mod file_open_system;
-mod grid;
-mod math;
-mod particles;
-mod puzzle;
-mod reference_image;
-mod sounds;
-mod take_once;
-mod text;
-mod text_alerts;
-mod triangle;
-mod vertex;
+pub mod secret_project;
 
-use crate::app::*;
-use crate::button::*;
-use crate::camera::*;
-use crate::color_picker::ColorPicker;
-use crate::cursor::*;
-use crate::drawing::*;
-use crate::editor_ui::EguiEditor;
-use crate::editor_ui::*;
-use crate::file_open_system::*;
-use crate::grid::*;
-use crate::math::*;
-use crate::particles::*;
-use crate::reference_image::*;
-use crate::sounds::*;
-use crate::text::*;
-use crate::text_alerts::*;
+use secret_project::*;
 
 use bevy::asset::UnapprovedPathMode;
 use bevy::prelude::*;
@@ -188,7 +154,7 @@ fn draw_eraser(
         RED,
     );
 
-    for g in grid::grids_in_radius(p, eraser_world_radius) {
+    for g in grids_in_radius(p, eraser_world_radius) {
         draw_grid(&mut painter, g, 2.0, GRAY);
 
         for vid in lut.lup(g).iter().flat_map(|e| e.iter()) {
@@ -202,127 +168,4 @@ fn draw_eraser(
             }
         }
     }
-}
-
-fn draw_puzzle(
-    mut painter: ShapePainter,
-    app: Res<VertexApp>,
-    cursor: Res<CursorState>,
-    puzzle: Single<&Puzzle>,
-    camera: Single<&Transform, With<Camera>>,
-    editor_mode: Res<State<EditorMode>>,
-) {
-    let scale = camera.scale.x;
-
-    for (a, b, c, color) in puzzle.triangles() {
-        draw_triangle(
-            &mut painter,
-            a,
-            b,
-            c,
-            TRIANGLE_Z,
-            color.with_alpha(app.triangle_alpha),
-        );
-    }
-
-    let complete = puzzle.is_complete();
-
-    let is_play = *editor_mode == EditorMode::Play;
-
-    if app.draw_edges {
-        for (a, b, e) in puzzle.edges() {
-            let z = if e.is_visible {
-                ACTIVE_EDGE_Z
-            } else {
-                HIDDEN_EDGE_Z
-            };
-            let c = a.pos.lerp(b.pos, 0.5);
-            for (v, c) in [(a.pos, c), (b.pos, c)] {
-                let r = v.lerp(c, e.length_animation.actual);
-                draw_line(
-                    &mut painter,
-                    v,
-                    r,
-                    z,
-                    e.thickness_animation.actual * scale,
-                    BLACK,
-                );
-            }
-            if !complete && !is_play {
-                draw_line(
-                    &mut painter,
-                    a.pos,
-                    b.pos,
-                    HIDDEN_EDGE_Z,
-                    3.0 * scale,
-                    GRAY.with_alpha(0.2),
-                );
-            }
-        }
-
-        for (_, v) in puzzle.vertices() {
-            if v.marker_radius.actual < 1.0 {
-                continue;
-            }
-
-            if is_play {
-                fill_circle(
-                    &mut painter,
-                    v.pos,
-                    VERTEX_Z,
-                    v.marker_radius.actual * scale,
-                    BLACK,
-                );
-                fill_circle(
-                    &mut painter,
-                    v.pos,
-                    VERTEX_Z_2,
-                    (v.marker_radius.actual - 4.0) * scale,
-                    WHITE,
-                );
-
-                let total_edges = v.invisible_count + v.visible_count;
-                for i in 0..total_edges {
-                    let color = if i < v.invisible_count { BLACK } else { GRAY };
-                    let r = 20.0 * scale;
-                    let a = std::f32::consts::PI * (0.5 + 2.0 * i as f32 / total_edges as f32);
-                    let p = v.pos + Vec2::from_angle(a) * r;
-                    fill_circle(&mut painter, p, VERTEX_Z_2, 4.0 * scale, color);
-                }
-            } else {
-                let dims = Vec2::splat(10.0) * scale;
-                draw_rect(&mut painter, v.pos - dims / 2.0, dims, 1.0 * scale, BLACK);
-            }
-
-            if v.is_clicked {
-                fill_circle(&mut painter, v.pos, VERTEX_Z_2, 8.0 * scale, RED);
-            }
-            if v.is_hovered {
-                fill_circle(&mut painter, v.pos, VERTEX_Z_2, 8.0 * scale, GREEN);
-            }
-            if v.is_follow() {
-                fill_circle(&mut painter, v.pos, VERTEX_Z_2, 8.0 * scale, BLUE);
-            }
-        }
-    }
-
-    if let Some(p) = cursor.mouse_pos {
-        fill_circle(&mut painter, p, CURSOR_Z, 5.0 * scale, GRAY.with_alpha(0.3));
-    }
-
-    draw_cursor_line(&mut painter, &puzzle, scale);
-}
-
-fn draw_cursor_line(painter: &mut ShapePainter, puzzle: &Puzzle, scale: f32) -> Option<()> {
-    let line = puzzle.active_line()?;
-    let start = puzzle.vertex_n(line.0)?;
-    draw_line(
-        painter,
-        start.pos,
-        line.1,
-        ACTIVE_LINE_Z,
-        3.0 * scale,
-        ORANGE,
-    );
-    Some(())
 }

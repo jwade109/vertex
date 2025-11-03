@@ -1,10 +1,5 @@
-use crate::app::VertexApp;
-use crate::cursor::EditorMode;
-use crate::file_open_system::*;
-use crate::puzzle::*;
-use crate::sounds::*;
-use crate::text_alerts::TextMessage;
-use bevy::prelude::*;
+use crate::*;
+
 use bevy_egui::{egui, EguiContexts, EguiPlugin, EguiPrimaryContextPass};
 use egui::containers::panel::Side;
 use std::path::PathBuf;
@@ -168,7 +163,6 @@ fn editor_ui_system(
             ui.separator();
 
             ui.checkbox(&mut app.puzzle_locked, "Puzzle Locked");
-            ui.checkbox(&mut app.draw_edges, "Draw Edges");
 
             ui.separator();
 

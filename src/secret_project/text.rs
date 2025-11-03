@@ -1,6 +1,6 @@
-use crate::math::Vec3;
+use crate::*;
+
 use bevy::color::palettes::css::BLACK;
-use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
 #[derive(Clone)]

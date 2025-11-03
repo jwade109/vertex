@@ -1,6 +1,7 @@
 #![allow(unused)]
 
-use crate::puzzle::Puzzle;
+use crate::*;
+
 use bevy::prelude::*;
 use std::collections::{HashMap, HashSet};
 

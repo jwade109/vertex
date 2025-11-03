@@ -1,9 +1,5 @@
-use crate::edge::*;
-use crate::math::*;
-use crate::take_once::*;
-use crate::triangle::*;
-use crate::vertex::*;
-use bevy::color::palettes::basic::*;
+use crate::*;
+
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -13,7 +9,8 @@ use std::path::*;
 pub struct Puzzle {
     next_vertex_id: usize,
     vertices: HashMap<usize, Vertex>,
-    edges: HashMap<(usize, usize), Edge>,
+    solution_edges: HashMap<(usize, usize), Edge>,
+    game_edges: HashMap<(usize, usize), Edge>,
     triangles: HashMap<(usize, usize, usize), Triangle>,
     active_line: Option<(usize, Vec2)>,
 }
@@ -35,7 +32,8 @@ impl Puzzle {
         Self {
             next_vertex_id: 0,
             vertices: HashMap::new(),
-            edges: HashMap::new(),
+            solution_edges: HashMap::new(),
+            game_edges: HashMap::new(),
             triangles: HashMap::new(),
             active_line: None,
         }
@@ -48,18 +46,12 @@ impl Puzzle {
     }
 
     pub fn complete(&mut self) {
-        for (_, e) in &mut self.edges {
-            e.is_visible = true;
-        }
-
-        self.update_visibility();
+        // TODO
+        // self.update_visibility();
     }
 
     pub fn decomplete(&mut self) {
-        for (_, e) in &mut self.edges {
-            e.is_visible = false;
-        }
-
+        self.game_edges.clear();
         self.update_visibility();
     }
 
@@ -69,23 +61,24 @@ impl Puzzle {
     }
 
     fn update_visibility(&mut self) {
-        for (id, v) in &mut self.vertices {
-            v.visible_count = self
-                .edges
-                .iter()
-                .filter(|(_, e)| (e.a == *id || e.b == *id) && e.is_visible)
-                .count();
+        // TODO
+        // for (id, v) in &mut self.vertices {
+        //     v.visible_count = self
+        //         .solution_edges
+        //         .iter()
+        //         .filter(|(_, e)| (e.a == *id || e.b == *id) && e.is_visible)
+        //         .count();
 
-            v.invisible_count = self
-                .edges
-                .iter()
-                .filter(|(_, e)| (e.a == *id || e.b == *id) && !e.is_visible)
-                .count();
-        }
+        //     v.invisible_count = self
+        //         .solution_edges
+        //         .iter()
+        //         .filter(|(_, e)| (e.a == *id || e.b == *id) && !e.is_visible)
+        //         .count();
+        // }
     }
 
     fn update_triangles(&mut self) {
-        for (_, edge) in &self.edges {
+        for (_, edge) in &self.solution_edges {
             let u = edge.a;
             let v = edge.b;
             for (w, _) in &self.vertices {
@@ -153,13 +146,13 @@ impl Puzzle {
     }
 
     pub fn clear_triangles(&mut self) {
-        self.edges.clear();
+        self.solution_edges.clear();
         self.triangles.clear();
         self.update();
     }
 
     pub fn triangulate(&mut self) {
-        self.edges.clear();
+        self.solution_edges.clear();
         self.triangles.clear();
 
         let ids: Vec<_> = self.vertices.iter().map(|(id, _)| *id).collect();
@@ -191,7 +184,7 @@ impl Puzzle {
                 let max = u.max(v);
                 let edge = Edge::new(min, max, false);
 
-                self.edges.insert((min, max), edge);
+                self.solution_edges.insert((min, max), edge);
             }
 
             i += 3;
@@ -202,7 +195,7 @@ impl Puzzle {
 
     pub fn randomize(&mut self) {
         self.vertices.clear();
-        self.edges.clear();
+        self.solution_edges.clear();
         self.triangles.clear();
         for _ in 0..20 {
             let v = Vec2::new(random(-700.0, 700.0), random(-400.0, 400.0));
@@ -215,7 +208,7 @@ impl Puzzle {
 
     pub fn grid(&mut self) {
         self.vertices.clear();
-        self.edges.clear();
+        self.solution_edges.clear();
         self.triangles.clear();
 
         for x in (-800..=800).step_by(40) {
@@ -257,8 +250,16 @@ impl Puzzle {
         res.map(|(i, _)| *i)
     }
 
-    pub fn edges(&self) -> impl Iterator<Item = (&Vertex, &Vertex, &Edge)> + use<'_> {
-        self.edges.iter().filter_map(|(_, e)| {
+    pub fn solution_edges(&self) -> impl Iterator<Item = (&Vertex, &Vertex, &Edge)> + use<'_> {
+        self.solution_edges.iter().filter_map(|(_, e)| {
+            let v1 = self.vertex_n(e.a)?;
+            let v2 = self.vertex_n(e.b)?;
+            Some((v1, v2, e))
+        })
+    }
+
+    pub fn game_edges(&self) -> impl Iterator<Item = (&Vertex, &Vertex, &Edge)> + use<'_> {
+        self.game_edges.iter().filter_map(|(_, e)| {
             let v1 = self.vertex_n(e.a)?;
             let v2 = self.vertex_n(e.b)?;
             Some((v1, v2, e))
@@ -286,7 +287,7 @@ impl Puzzle {
     // pub fn remove_vertex(&mut self, id: usize) {
     //     info!("Removing vertex {}", id);
     //     self.vertices.remove_entry(&id);
-    //     self.edges.retain(|_, e| !e.has_vertex(id));
+    //     self.solution_edges.retain(|_, e| !e.has_vertex(id));
     //     self.update();
     //     // TODO faces
     // }
@@ -325,18 +326,18 @@ impl Puzzle {
     // fn get_edge_mut(&mut self, a: usize, b: usize) -> Option<&mut Edge> {
     //     let emin = a.min(b);
     //     let emax = a.max(b);
-    //     self.edges.get_mut(&(emin, emax))
+    //     self.solution_edges.get_mut(&(emin, emax))
     // }
 
     fn is_edge(&self, a: usize, b: usize) -> bool {
         let (a, b) = (a.min(b), a.max(b));
-        self.edges.contains_key(&(a, b))
+        self.solution_edges.contains_key(&(a, b))
     }
 
     fn remove_edge(&mut self, a: usize, b: usize) {
         let (a, b) = (a.min(b), a.max(b));
         info!("Removing edge between {} and {}", a, b);
-        self.edges.remove(&(a, b));
+        self.solution_edges.remove(&(a, b));
         self.update();
     }
 
@@ -352,13 +353,13 @@ impl Puzzle {
 
         let key = (min, max);
 
-        if self.edges.contains_key(&key) {
+        if self.solution_edges.contains_key(&key) {
             info!("Edge already exists");
             return;
         }
 
         let edge = Edge::new(min, max, state);
-        self.edges.insert(key, edge);
+        self.solution_edges.insert(key, edge);
         self.update();
     }
 
@@ -476,24 +477,14 @@ impl Puzzle {
             };
         }
 
-        for (_, e) in &mut self.edges {
-            e.length_animation.target = e.is_visible as u8 as f32;
+        for (_, e) in &mut self.solution_edges {
+            e.length_animation.target = 1.0;
             e.length_animation.step();
-            e.thickness_animation.target = if is_complete {
-                0.0
-            } else if e.is_visible {
-                3.0
-            } else {
-                1.0
-            };
+            e.thickness_animation.target = 2.0;
             e.thickness_animation.step();
         }
 
         for (_, t) in &mut self.triangles {
-            t.is_visible = is_edge_visible(&self.edges, t.a, t.b)
-                && is_edge_visible(&self.edges, t.a, t.c)
-                && is_edge_visible(&self.edges, t.b, t.c);
-
             t.animation.target = t.is_visible as u8 as f32;
             t.animation.step();
         }
@@ -503,14 +494,6 @@ impl Puzzle {
         !self.triangles.is_empty()
             && self.triangles.iter().all(|(_, t)| t.is_visible)
             && self.vertices.iter().all(|(_, v)| v.visible_count > 1)
-    }
-}
-
-fn is_edge_visible(edges: &HashMap<(usize, usize), Edge>, a: usize, b: usize) -> bool {
-    if let Some(e) = edges.get(&(a.min(b), a.max(b))) {
-        e.is_visible
-    } else {
-        false
     }
 }
 
@@ -556,7 +539,7 @@ impl From<&Puzzle> for PuzzleRepr {
         for (id, p) in &value.vertices {
             repr.vertices.insert(*id, p.pos);
         }
-        for (_, e) in &value.edges {
+        for (_, e) in &value.solution_edges {
             repr.edges.push((e.a, e.b));
         }
         for (_, t) in &value.triangles {
@@ -589,4 +572,97 @@ pub fn point_in_triangle(test: Vec2, a: Vec2, b: Vec2, c: Vec2) -> bool {
         / ((b.y - c.y) * (a.x - c.x) + (c.x - b.x) * (a.y - c.y));
     let gamma = 1.0 - alpha - beta;
     alpha > 0.0 && beta > 0.0 && gamma > 0.0
+}
+
+pub fn draw_puzzle(
+    mut painter: ShapePainter,
+    app: Res<VertexApp>,
+    puzzle: Single<&Puzzle>,
+    camera: Single<&Transform, With<Camera>>,
+    editor_mode: Res<State<EditorMode>>,
+) {
+    let scale = camera.scale.x;
+
+    for (a, b, c, color) in puzzle.triangles() {
+        draw_triangle(
+            &mut painter,
+            a,
+            b,
+            c,
+            TRIANGLE_Z,
+            color.with_alpha(app.triangle_alpha),
+        );
+    }
+
+    let is_play = *editor_mode == EditorMode::Play;
+
+    for (a, b, e) in puzzle.solution_edges() {
+        let c = a.pos.lerp(b.pos, 0.5);
+        for (v, c) in [(a.pos, c), (b.pos, c)] {
+            let r = v.lerp(c, e.length_animation.actual);
+            let t = e.thickness_animation.actual * scale;
+            draw_line(&mut painter, v, r, ACTIVE_EDGE_Z, t, BLACK);
+        }
+    }
+
+    for (_, v) in puzzle.vertices() {
+        if v.marker_radius.actual < 1.0 {
+            continue;
+        }
+
+        if is_play {
+            fill_circle(
+                &mut painter,
+                v.pos,
+                VERTEX_Z,
+                v.marker_radius.actual * scale,
+                BLACK,
+            );
+            fill_circle(
+                &mut painter,
+                v.pos,
+                VERTEX_Z_2,
+                (v.marker_radius.actual - 4.0) * scale,
+                WHITE,
+            );
+
+            let total_edges = v.invisible_count + v.visible_count;
+            for i in 0..total_edges {
+                let color = if i < v.invisible_count { BLACK } else { GRAY };
+                let r = 20.0 * scale;
+                let a = std::f32::consts::PI * (0.5 + 2.0 * i as f32 / total_edges as f32);
+                let p = v.pos + Vec2::from_angle(a) * r;
+                fill_circle(&mut painter, p, VERTEX_Z_2, 4.0 * scale, color);
+            }
+        } else {
+            let dims = Vec2::splat(10.0) * scale;
+            draw_rect(&mut painter, v.pos - dims / 2.0, dims, 1.0 * scale, BLACK);
+        }
+
+        if v.is_clicked {
+            fill_circle(&mut painter, v.pos, VERTEX_Z_2, 8.0 * scale, RED);
+        }
+        if v.is_hovered {
+            fill_circle(&mut painter, v.pos, VERTEX_Z_2, 8.0 * scale, GREEN);
+        }
+        if v.is_follow() {
+            fill_circle(&mut painter, v.pos, VERTEX_Z_2, 8.0 * scale, BLUE);
+        }
+    }
+
+    draw_cursor_line(&mut painter, &puzzle, scale);
+}
+
+fn draw_cursor_line(painter: &mut ShapePainter, puzzle: &Puzzle, scale: f32) -> Option<()> {
+    let line = puzzle.active_line()?;
+    let start = puzzle.vertex_n(line.0)?;
+    draw_line(
+        painter,
+        start.pos,
+        line.1,
+        ACTIVE_LINE_Z,
+        3.0 * scale,
+        ORANGE,
+    );
+    Some(())
 }

@@ -1,4 +1,4 @@
-use crate::math::*;
+use crate::*;
 
 pub struct Vertex {
     pub pos: Vec2,

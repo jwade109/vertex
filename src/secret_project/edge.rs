@@ -1,13 +1,12 @@
 #![allow(unused)]
 
-use crate::math::*;
+use crate::*;
 
 pub struct Edge {
     pub a: usize,
     pub b: usize,
     pub length_animation: Lpf,
     pub thickness_animation: Lpf,
-    pub is_visible: bool,
 }
 
 impl Edge {
@@ -18,7 +17,6 @@ impl Edge {
             b,
             length_animation: Lpf::new(animation, animation, 0.1),
             thickness_animation: Lpf::new(3.0, 1.0, 0.1),
-            is_visible: active,
         }
     }
 

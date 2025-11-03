@@ -1,19 +1,12 @@
 #![allow(unused)]
 
-use crate::app::VertexApp;
-use crate::color_picker::ColorPicker;
-use crate::cursor::*;
-use crate::math::*;
-use crate::puzzle::Puzzle;
-use crate::reference_image::RefImageWindow;
-use crate::take_once::*;
-use crate::text::TextPainter;
+use crate::*;
+
 use bevy::color::palettes::css::*;
 use bevy::color::Srgba;
 use bevy::input::mouse::MouseButtonInput;
 use bevy::prelude::*;
 use bevy_vector_shapes::prelude::*;
-use crate::sounds::SoundEffect;
 
 #[derive(Component, Debug, Clone)]
 pub struct Button {

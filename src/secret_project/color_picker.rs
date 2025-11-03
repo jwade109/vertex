@@ -1,9 +1,7 @@
 #![allow(unused)]
 
-use crate::drawing::*;
-use crate::math::*;
-use crate::take_once::*;
-use crate::text::TextPainter;
+use crate::*;
+
 use bevy::color::*;
 use bevy::prelude::*;
 use indexmap::IndexMap;

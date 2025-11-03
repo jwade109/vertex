@@ -5,7 +5,6 @@ pub struct VertexApp {
     pub ref_image_alpha: f32,
     pub triangle_alpha: f32,
     pub puzzle_locked: bool,
-    pub draw_edges: bool,
     pub blend_scale: f32,
 }
 
@@ -15,7 +14,6 @@ impl VertexApp {
             ref_image_alpha: 0.4,
             triangle_alpha: 1.0,
             puzzle_locked: false,
-            draw_edges: true,
             blend_scale: 0.5,
         }
     }

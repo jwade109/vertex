@@ -1,8 +1,4 @@
-use crate::cursor::*;
-use crate::drawing::*;
-use crate::grid::*;
-use crate::math::random;
-use bevy::prelude::*;
+use crate::*;
 
 pub struct ParticlePlugin;
 
