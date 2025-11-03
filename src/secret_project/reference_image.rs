@@ -17,7 +17,7 @@ impl Plugin for ReferenceImagePlugin {
     }
 }
 
-fn update_transparency(app: Res<VertexApp>, mut query: Query<(&mut Sprite, &RefImageWindow)>) {
+fn update_transparency(app: Res<Settings>, mut query: Query<(&mut Sprite, &RefImageWindow)>) {
     for (mut s, window) in &mut query {
         let alpha = app.ref_image_alpha.lerp(
             1.0,

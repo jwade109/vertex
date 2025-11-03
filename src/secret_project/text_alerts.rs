@@ -44,7 +44,6 @@ fn process_messages(
 
         let b = BorderColor::all(Srgba::RED);
 
-
         commands
             .spawn((
                 Node {

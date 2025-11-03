@@ -403,8 +403,6 @@ impl Puzzle {
             }
         }
 
-        const CLICK_TARGET_SIZE_PIXELS: f32 = 50.0;
-
         if let Some(pos) = pos {
             if let Some(id) = self.vertex_at(pos, CLICK_TARGET_SIZE_PIXELS * scale) {
                 if let Some(v) = self.vertices.get_mut(&id) {
@@ -576,7 +574,7 @@ pub fn point_in_triangle(test: Vec2, a: Vec2, b: Vec2, c: Vec2) -> bool {
 
 pub fn draw_puzzle(
     mut painter: ShapePainter,
-    app: Res<VertexApp>,
+    app: Res<Settings>,
     puzzle: Single<&Puzzle>,
     camera: Single<&Transform, With<Camera>>,
     editor_mode: Res<State<EditorMode>>,
@@ -665,4 +663,42 @@ fn draw_cursor_line(painter: &mut ShapePainter, puzzle: &Puzzle, scale: f32) -> 
         ORANGE,
     );
     Some(())
+}
+
+pub fn step_puzzle(mut puzzle: Single<&mut Puzzle>) {
+    puzzle.step();
+}
+
+pub fn on_load_puzzle(
+    mut commands: Commands,
+    mut puzzle: Single<&mut Puzzle>,
+    mut msg: MessageReader<FileMessage>,
+    mut open: ResMut<OpenPuzzle>,
+) {
+    for msg in msg.read() {
+        let (filetype, path) = if let FileMessage::Opened(filetype, path) = msg {
+            (filetype, path)
+        } else {
+            continue;
+        };
+
+        match filetype {
+            FileType::Any => (),
+            FileType::Puzzle => (),
+            FileType::ReferenceImage => continue,
+        }
+
+        if let Ok(p) = puzzle_from_file(&path) {
+            **puzzle = p;
+
+            commands.write_message(TextMessage::new(format!(
+                "Opened puzzle at \"{}\"",
+                path.display()
+            )));
+
+            open.0 = Some(path.clone());
+
+            commands.write_message(SoundEffect::UiPopUp);
+        }
+    }
 }

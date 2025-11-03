@@ -229,7 +229,7 @@ fn on_generic_input(
     mut pickers: Query<&mut ColorPicker>,
     mut images: Query<&mut RefImageWindow>,
     mut puzzle: Single<&mut Puzzle>,
-    app: Res<VertexApp>,
+    app: Res<Settings>,
     mut msg: MessageReader<InputMessage>,
 ) {
     'outer: for input in msg.read() {
@@ -293,7 +293,7 @@ fn propagate_cursor_position(
     mut images: Query<&mut RefImageWindow>,
     mut puzzle: Single<&mut Puzzle>,
     camera: Single<&Transform, With<Camera>>,
-    app: Res<VertexApp>,
+    app: Res<Settings>,
     cursor: Res<CursorState>,
 ) {
     let pos = cursor.mouse_pos;

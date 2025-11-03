@@ -55,7 +55,7 @@ fn save_puzzle_system(
 fn editor_ui_system(
     mut contexts: EguiContexts,
     mut commands: Commands,
-    mut app: ResMut<VertexApp>,
+    mut app: ResMut<Settings>,
     mut puzzle: Single<&mut Puzzle>,
     mut camera: Single<&mut Transform, (With<Camera>, Without<Sprite>)>,
     sprites: Query<(Entity, &Sprite, &Transform)>,

@@ -95,13 +95,13 @@ mod tests {
 
     #[test]
     fn grid_conversions() {
-        assert_eq!(to_grid(Vec2::new(40.0, 130.0)), IVec2::ZERO);
-        assert_eq!(to_grid(Vec2::new(40.0, 210.0)), IVec2::new(0, 1));
-        assert_eq!(to_grid(Vec2::new(340.0, 210.0)), IVec2::new(1, 1));
-        assert_eq!(to_grid(Vec2::new(920.0, 500.0)), IVec2::new(4, 2));
+        assert_eq!(to_grid(Vec2::new(40.0, 30.0)), IVec2::ZERO);
+        assert_eq!(to_grid(Vec2::new(40.0, 210.0)), IVec2::new(0, 2));
+        assert_eq!(to_grid(Vec2::new(340.0, 210.0)), IVec2::new(3, 2));
+        assert_eq!(to_grid(Vec2::new(920.0, 500.0)), IVec2::new(9, 5));
 
-        assert_eq!(to_grid(Vec2::new(-40.0, -130.0)), IVec2::new(-1, -1));
-        assert_eq!(to_grid(Vec2::new(-290.0, -430.0)), IVec2::new(-2, -3));
+        assert_eq!(to_grid(Vec2::new(-40.0, -130.0)), IVec2::new(-1, -2));
+        assert_eq!(to_grid(Vec2::new(-290.0, -430.0)), IVec2::new(-3, -5));
     }
 }
 

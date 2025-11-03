@@ -40,50 +40,12 @@ fn main() {
 
 fn startup(mut commands: Commands, mut _windows: Query<&mut Window, With<PrimaryWindow>>) {
     commands.spawn(Camera2d);
-    commands.insert_resource(VertexApp::new());
+    commands.insert_resource(Settings::new());
     commands.insert_resource(ClearColor(Srgba::new(0.9, 0.9, 0.9, 1.0).into()));
     commands.insert_resource(TextPainter::new());
 
     commands.spawn(Puzzle::new());
     commands.spawn(ColorPicker::new());
-}
-
-fn step_puzzle(mut puzzle: Single<&mut Puzzle>) {
-    puzzle.step();
-}
-
-fn on_load_puzzle(
-    mut commands: Commands,
-    mut puzzle: Single<&mut Puzzle>,
-    mut msg: MessageReader<FileMessage>,
-    mut open: ResMut<OpenPuzzle>,
-) {
-    for msg in msg.read() {
-        let (filetype, path) = if let FileMessage::Opened(filetype, path) = msg {
-            (filetype, path)
-        } else {
-            continue;
-        };
-
-        match filetype {
-            FileType::Any => (),
-            FileType::Puzzle => (),
-            FileType::ReferenceImage => continue,
-        }
-
-        if let Ok(p) = puzzle_from_file(&path) {
-            **puzzle = p;
-
-            commands.write_message(TextMessage::new(format!(
-                "Opened puzzle at \"{}\"",
-                path.display()
-            )));
-
-            open.0 = Some(path.clone());
-
-            commands.write_message(SoundEffect::UiPopUp);
-        }
-    }
 }
 
 fn on_input_tick(
@@ -118,16 +80,6 @@ fn on_input_tick(
         commands.write_message(AppExit::Success);
     }
 }
-
-const TRIANGLE_Z: f32 = 0.09;
-const HIDDEN_EDGE_Z: f32 = 0.1;
-const ACTIVE_EDGE_Z: f32 = 0.11;
-const VERTEX_Z: f32 = 0.2;
-const VERTEX_Z_2: f32 = 0.21;
-const ACTIVE_LINE_Z: f32 = 0.22;
-const CURSOR_Z: f32 = 0.3;
-
-const ERASER_SCREEN_WIDTH: f32 = 120.0;
 
 fn draw_eraser(
     mut painter: ShapePainter,
