@@ -24,7 +24,8 @@ pub fn draw_rect(painter: &mut ShapePainter, origin: Vec2, dims: Vec2, t: f32, c
     painter.set_color(color);
     painter.hollow = true;
     painter.thickness = t;
-    painter.rect(dims + Vec2::splat(t));
+    painter.thickness_type = ThicknessType::Pixels;
+    painter.rect(dims);
 }
 
 pub fn draw_grid(painter: &mut ShapePainter, g: IVec2, t: f32, color: Srgba) {
@@ -68,9 +69,10 @@ pub fn draw_circle(
     painter.reset();
     painter.thickness = t;
     painter.hollow = true;
+    painter.thickness_type = ThicknessType::Pixels;
     painter.set_translation(p.extend(z));
     painter.set_color(color);
-    painter.circle(r + t / 2.0);
+    painter.circle(r);
     painter.set_translation(Vec3::ZERO);
 }
 
@@ -101,6 +103,7 @@ pub fn draw_line(
 ) {
     painter.reset();
     painter.thickness = thickness;
+    painter.thickness_type = ThicknessType::Pixels;
     painter.set_color(color);
     painter.set_translation(Vec2::ZERO.extend(z));
     painter.line(a.extend(0.0), b.extend(0.0));

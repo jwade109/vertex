@@ -62,14 +62,8 @@ fn editor_ui_system(
     images: Res<Assets<Image>>,
     keys: Res<ButtonInput<KeyCode>>,
     open_file: Res<OpenPuzzle>,
+    sel: Res<SelectedVertices>,
 ) {
-    if keys.just_pressed(KeyCode::KeyE) {
-        app.puzzle_locked = true;
-    }
-    if keys.just_released(KeyCode::KeyE) {
-        app.puzzle_locked = false;
-    }
-
     if keys.pressed(KeyCode::ControlLeft) && keys.just_pressed(KeyCode::KeyS) {
         let filepath = open_file.0.clone().unwrap_or("puzzle.txt".into());
         commands.write_message(SavePuzzle { filepath });
@@ -131,12 +125,16 @@ fn editor_ui_system(
                 puzzle.decomplete();
             }
 
+            if ui.button("Update").clicked() {
+                puzzle.update();
+            }
+
             if ui.button("Randomize").clicked() {
                 puzzle.randomize();
             }
 
             if ui.button("Triangulate").clicked() {
-                puzzle.triangulate();
+                puzzle.triangulate(sel);
             }
 
             if ui.button("Grid").clicked() {
@@ -159,10 +157,6 @@ fn editor_ui_system(
                     filepath: "puzzle.txt".into(),
                 });
             }
-
-            ui.separator();
-
-            ui.checkbox(&mut app.puzzle_locked, "Puzzle Locked");
 
             ui.separator();
 

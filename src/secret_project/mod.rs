@@ -38,3 +38,4 @@ pub use text::*;
 pub use text_alerts::*;
 
 pub use enum_iterator::*;
+pub use std::collections::*;

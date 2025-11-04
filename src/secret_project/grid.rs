@@ -62,30 +62,54 @@ pub fn grids_in_radius(p: Vec2, r: f32) -> Vec<IVec2> {
 
 #[derive(Resource, Default)]
 pub struct SpatialLookup {
-    cells: HashMap<IVec2, HashSet<usize>>,
+    vertex_cells: HashMap<IVec2, HashSet<usize>>,
+    edge_cells: HashMap<IVec2, HashSet<(usize, usize)>>,
+}
+
+fn update_hashset<T: std::cmp::Eq + std::hash::Hash>(
+    map: &mut HashMap<IVec2, HashSet<T>>,
+    key: IVec2,
+    val: T,
+) {
+    if let Some(g) = map.get_mut(&key) {
+        g.insert(val);
+    } else {
+        let set = HashSet::from([val]);
+        map.insert(key, set);
+    }
 }
 
 impl SpatialLookup {
     fn clear(&mut self) {
-        self.cells.clear();
+        self.vertex_cells.clear();
+        self.edge_cells.clear();
     }
 
-    pub fn occupied(&self) -> impl Iterator<Item = IVec2> + use<'_> {
-        self.cells.iter().map(|(g, _)| *g)
+    pub fn occupied_vertex(&self) -> impl Iterator<Item = IVec2> + use<'_> {
+        self.vertex_cells.iter().map(|(g, _)| *g)
     }
 
-    pub fn lup(&self, g: IVec2) -> Option<&HashSet<usize>> {
-        self.cells.get(&g)
+    pub fn occupied_edge(&self) -> impl Iterator<Item = IVec2> + use<'_> {
+        self.edge_cells.iter().map(|(g, _)| *g)
     }
 
-    fn update(&mut self, id: usize, p: Vec2) {
+    pub fn lup_vertex(&self, g: IVec2) -> Option<&HashSet<usize>> {
+        self.vertex_cells.get(&g)
+    }
+
+    pub fn lup_edge(&self, g: IVec2) -> Option<&HashSet<(usize, usize)>> {
+        self.edge_cells.get(&g)
+    }
+
+    fn update_vertex(&mut self, id: usize, p: Vec2) {
         let g = to_grid(p);
-        if let Some(g) = self.cells.get_mut(&g) {
-            g.insert(id);
-        } else {
-            let set = HashSet::from([id]);
-            self.cells.insert(g, set);
-        }
+        update_hashset(&mut self.vertex_cells, g, id);
+    }
+
+    fn update_edge(&mut self, u: (usize, Vec2), v: (usize, Vec2)) {
+        let center = (u.1 + v.1) / 2.0;
+        let g = to_grid(center);
+        update_hashset(&mut self.edge_cells, g, (u.0, v.0));
     }
 }
 
@@ -109,14 +133,28 @@ pub struct GridPlugin;
 
 impl Plugin for GridPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(SpatialLookup::default())
-            .add_systems(Update, update_lut);
+        app.insert_resource(SpatialLookup::default()).add_systems(
+            Update,
+            (
+                update_lut,
+                draw_occupied_cells.run_if(not(in_state(EditorMode::Play))),
+            ),
+        );
     }
 }
 
 fn update_lut(puzzle: Single<&Puzzle>, mut lut: ResMut<SpatialLookup>) {
     lut.clear();
     for (id, vertex) in puzzle.vertices() {
-        lut.update(id, vertex.pos);
+        lut.update_vertex(id, vertex.pos);
+    }
+    for (a, u, b, v) in puzzle.solution_edges() {
+        lut.update_edge((a, u.pos), (b, v.pos));
+    }
+}
+
+fn draw_occupied_cells(mut painter: ShapePainter, lut: Res<SpatialLookup>) {
+    for g in lut.occupied_vertex() {
+        draw_grid(&mut painter, g, 2.0, GRAY.with_alpha(0.2));
     }
 }

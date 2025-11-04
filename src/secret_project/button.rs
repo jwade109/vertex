@@ -121,7 +121,7 @@ impl Button {
             painter.rect(anim_dims);
         }
 
-        text.set_position((self.pos + self.dims / 2.0).extend(100.0));
+        text.set_position((self.pos + self.dims / 2.0).extend(BUTTON_TEXT_Z));
         text.set_height(self.dims.y * 0.7);
         text.set_color(BLACK.with_alpha(1.0));
         text.text(self.text.clone());
@@ -152,20 +152,20 @@ impl Plugin for ButtonPlugin {
 }
 
 fn startup(mut commands: Commands) {
-    let button_text = [
-        "Load",
-        "Save",
-        "Picker",
-        "Normalize",
-        "Whatever",
-        "Whocares",
-    ];
+    // let button_text = [
+    //     "Load",
+    //     "Save",
+    //     "Picker",
+    //     "Normalize",
+    //     "Whatever",
+    //     "Whocares",
+    // ];
 
-    for (i, text) in button_text.into_iter().enumerate() {
-        let pos = Vec2::new(-900.0, i as f32 * 60.0);
-        let button = Button::new(text, pos);
-        commands.spawn(button);
-    }
+    // for (i, text) in button_text.into_iter().enumerate() {
+    //     let pos = Vec2::new(-900.0, i as f32 * 60.0);
+    //     let button = Button::new(text, pos);
+    //     commands.spawn(button);
+    // }
 }
 
 fn draw_buttons(mut painter: ShapePainter, mut text: ResMut<TextPainter>, query: Query<&Button>) {
@@ -225,11 +225,13 @@ fn translate_mouse_buttons(
 }
 
 fn on_generic_input(
+    mut commands: Commands,
     mut buttons: Query<&mut Button>,
     mut pickers: Query<&mut ColorPicker>,
     mut images: Query<&mut RefImageWindow>,
     mut puzzle: Single<&mut Puzzle>,
     app: Res<Settings>,
+    state: Res<State<EditorMode>>,
     mut msg: MessageReader<InputMessage>,
 ) {
     'outer: for input in msg.read() {
@@ -249,8 +251,10 @@ fn on_generic_input(
             }
         }
 
-        if !app.puzzle_locked {
-            puzzle.on_input(&mut input);
+        let puzzle_locked = *state == EditorMode::Images;
+
+        if !puzzle_locked {
+            puzzle.on_input(&mut input, &mut commands);
             if !input.should_propagate() {
                 continue 'outer;
             }
@@ -295,6 +299,8 @@ fn propagate_cursor_position(
     camera: Single<&Transform, With<Camera>>,
     app: Res<Settings>,
     cursor: Res<CursorState>,
+    state: Res<State<EditorMode>>,
+    active_line: ResMut<ActiveLine>,
 ) {
     let pos = cursor.mouse_pos;
     let scale = camera.scale.x;
@@ -309,14 +315,16 @@ fn propagate_cursor_position(
         button.set_cursor_position(&mut once);
     }
 
-    if app.puzzle_locked {
+    let puzzle_locked = *state == EditorMode::Images;
+
+    if puzzle_locked {
         for mut image in &mut images {
             image.set_cursor_position(&mut once);
         }
         once.take();
-        puzzle.set_cursor_position(&mut once, scale);
+        puzzle.set_cursor_position(&mut once, scale, active_line);
     } else {
-        puzzle.set_cursor_position(&mut once, scale);
+        puzzle.set_cursor_position(&mut once, scale, active_line);
         once.take();
         for mut image in &mut images {
             image.set_cursor_position(&mut once);

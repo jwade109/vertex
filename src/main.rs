@@ -28,13 +28,21 @@ fn main() {
         .add_plugins(SoundPlugin)
         .add_plugins(CursorPlugin)
         .add_plugins(ParticlePlugin)
+        .add_plugins(PuzzleMessagePlugin)
         .add_systems(Startup, startup)
         .add_systems(FixedUpdate, step_puzzle)
         .add_systems(
             Update,
-            (on_input_tick, draw_puzzle, text_system, on_load_puzzle).chain(),
+            (
+                on_input_tick,
+                draw_puzzle,
+                draw_cursor_line,
+                draw_solution_edges.run_if(not(in_state(EditorMode::Play))),
+                draw_game_edges.run_if(in_state(EditorMode::Play)),
+                text_system,
+                on_load_puzzle,
+            ),
         )
-        .add_systems(Update, draw_eraser.run_if(in_state(EditorMode::Eraser)))
         .run();
 }
 
@@ -71,53 +79,12 @@ fn on_input_tick(
     // keyboard presses
     if keys.just_pressed(KeyCode::KeyQ) {
         if let Some(p) = cursor.mouse_pos {
-            puzzle.add_point(p, true);
+            puzzle.add_point(p);
             commands.write_message(SoundEffect::LightPop);
         }
     }
 
     if keys.just_pressed(KeyCode::Escape) {
         commands.write_message(AppExit::Success);
-    }
-}
-
-fn draw_eraser(
-    mut painter: ShapePainter,
-    cursor: Res<CursorState>,
-    camera: Single<&Transform, With<Camera>>,
-    lut: Res<SpatialLookup>,
-    puzzle: Single<&Puzzle>,
-) {
-    let scale = camera.scale.x;
-
-    let p = match cursor.mouse_pos {
-        Some(p) => p,
-        _ => return,
-    };
-
-    let eraser_world_radius = ERASER_SCREEN_WIDTH * scale;
-
-    draw_circle(
-        &mut painter,
-        p,
-        100.0,
-        eraser_world_radius,
-        2.0 * scale,
-        RED,
-    );
-
-    for g in grids_in_radius(p, eraser_world_radius) {
-        draw_grid(&mut painter, g, 2.0, GRAY);
-
-        for vid in lut.lup(g).iter().flat_map(|e| e.iter()) {
-            if let Some(v) = puzzle.vertex_n(*vid) {
-                let color = if p.distance(v.pos) < eraser_world_radius {
-                    GREEN
-                } else {
-                    GREEN.with_alpha(0.2)
-                };
-                draw_circle(&mut painter, v.pos, 100.0, 25.0, 2.0, color);
-            }
-        }
     }
 }

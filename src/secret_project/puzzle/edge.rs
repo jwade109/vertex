@@ -2,25 +2,39 @@
 
 use crate::*;
 
-pub struct Edge {
-    pub a: usize,
-    pub b: usize,
-    pub length_animation: Lpf,
-    pub thickness_animation: Lpf,
+#[derive(Default)]
+pub struct Edges(pub HashSet<(usize, usize)>);
+
+pub fn normalize_edge(a: usize, b: usize) -> (usize, usize) {
+    let min = a.min(b);
+    let max = a.max(b);
+    (min, max)
 }
 
-impl Edge {
-    pub fn new(a: usize, b: usize, active: bool) -> Self {
-        let animation = active as u8 as f32;
-        Self {
-            a,
-            b,
-            length_animation: Lpf::new(animation, animation, 0.1),
-            thickness_animation: Lpf::new(3.0, 1.0, 0.1),
+impl Edges {
+    pub fn add_edge(&mut self, a: usize, b: usize) {
+        if a == b {
+            return;
         }
+        let key = normalize_edge(a, b);
+        self.0.insert(key);
     }
 
-    pub fn has_vertex(&self, id: usize) -> bool {
-        self.a == id || self.b == id
+    pub fn remove_edge(&mut self, a: usize, b: usize) {
+        let key = normalize_edge(a, b);
+        self.0.remove(&key);
+    }
+
+    pub fn is_edge(&self, a: usize, b: usize) -> bool {
+        let key = normalize_edge(a, b);
+        self.0.contains(&key)
+    }
+
+    pub fn remove_vertex(&mut self, id: usize) {
+        self.0.retain(|(a, b)| *a != id && *b != id);
+    }
+
+    pub fn clear(&mut self) {
+        self.0.clear();
     }
 }

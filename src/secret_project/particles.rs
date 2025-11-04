@@ -12,10 +12,16 @@ impl Plugin for ParticlePlugin {
 }
 
 #[derive(Component)]
-struct Ripple(Vec2, f32);
+pub struct Ripple(Vec2, f32);
+
+impl Ripple {
+    pub fn new(p: Vec2) -> Self {
+        Self(p, 0.0)
+    }
+}
 
 #[derive(Component)]
-struct GridParticle(Vec2, Vec2, f32);
+pub struct GridParticle(Vec2, Vec2, f32);
 
 fn add_particles(
     mut commands: Commands,

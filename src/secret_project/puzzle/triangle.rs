@@ -7,7 +7,7 @@ pub struct Triangle {
     pub b: usize,
     pub c: usize,
     pub animation: Lpf,
-    pub is_visible: bool,
+    is_visible: bool,
 }
 
 impl Triangle {
@@ -17,8 +17,8 @@ impl Triangle {
             a,
             b,
             c,
-            animation: Lpf::new(0.0, 0.0, 0.1),
-            is_visible: false,
+            animation: Lpf::new(1.0, 0.2, 0.1),
+            is_visible: true,
         }
     }
 }
