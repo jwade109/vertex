@@ -137,6 +137,10 @@ fn editor_ui_system(
                 puzzle.triangulate(sel);
             }
 
+            if ui.button("Update Triangles").clicked() {
+                puzzle.update();
+            }
+
             if ui.button("Grid").clicked() {
                 puzzle.grid();
             }

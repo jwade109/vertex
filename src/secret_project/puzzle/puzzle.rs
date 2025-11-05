@@ -79,10 +79,10 @@ impl Puzzle {
         }
 
         let mut triangles = self.triangles.clone();
-        triangles.retain(|_, t| {
-            self.solution_edges.is_edge(t.a, t.b)
-                && self.solution_edges.is_edge(t.a, t.c)
-                && self.solution_edges.is_edge(t.b, t.c)
+        triangles.retain(|(a, b, c), t| {
+            self.solution_edges.is_edge(*a, *b)
+                && self.solution_edges.is_edge(*a, *c)
+                && self.solution_edges.is_edge(*b, *c)
         });
         self.triangles = triangles;
     }
@@ -267,28 +267,17 @@ impl Puzzle {
     }
 
     pub fn triangles(&self) -> impl Iterator<Item = (Vec2, Vec2, Vec2, Srgba)> + use<'_> {
-        self.triangles.iter().filter_map(|(_, t)| {
-            let a = self.vertex_n(t.a)?.pos;
-            let b = self.vertex_n(t.b)?.pos;
-            let c = self.vertex_n(t.c)?.pos;
-            Some((a, b, c, t.color))
-        })
-    }
-
-    pub fn animated_triangles(&self) -> impl Iterator<Item = (Vec2, Vec2, Vec2, Srgba)> + use<'_> {
-        self.triangles.iter().filter_map(|(_, t)| {
-            if t.animation.actual < 0.01 {
+        self.triangles.iter().filter_map(|((a, b, c), t)| {
+            if !self.solution_edges.is_edge(*a, *b)
+                || !self.solution_edges.is_edge(*a, *c)
+                || !self.solution_edges.is_edge(*b, *c)
+            {
                 return None;
             }
 
-            let a = self.vertex_n(t.a)?.pos;
-            let b = self.vertex_n(t.b)?.pos;
-            let c = self.vertex_n(t.c)?.pos;
-
-            let s = t.animation.actual;
-            let a = c.lerp(a, s);
-            let b = c.lerp(b, s);
-
+            let a = self.vertex_n(*a)?.pos;
+            let b = self.vertex_n(*b)?.pos;
+            let c = self.vertex_n(*c)?.pos;
             Some((a, b, c, t.color))
         })
     }
@@ -298,6 +287,7 @@ impl Puzzle {
         self.vertices.remove_entry(&id);
         self.solution_edges.remove_vertex(id);
         self.game_edges.remove_vertex(id);
+        self.update_triangles();
     }
 
     fn on_right_click_down(&mut self, commands: &mut Commands) {
@@ -331,11 +321,13 @@ impl Puzzle {
     pub fn add_solution_edge(&mut self, a: usize, b: usize) {
         info!("Adding solution edge between {} and {}", a, b);
         self.solution_edges.add_edge(a, b);
+        self.update_triangles();
     }
 
     pub fn remove_solution_edge(&mut self, a: usize, b: usize) {
         info!("Adding solution edge between {} and {}", a, b);
         self.solution_edges.remove_edge(a, b);
+        self.update_triangles();
     }
 
     fn on_left_click_up(&mut self) {
@@ -416,10 +408,10 @@ impl Puzzle {
     }
 
     fn get_triangle_at(&mut self, p: Vec2) -> Option<&mut Triangle> {
-        self.triangles.iter_mut().find_map(|(_, t)| {
-            let a = self.vertices.get(&t.a)?.pos;
-            let b = self.vertices.get(&t.b)?.pos;
-            let c = self.vertices.get(&t.c)?.pos;
+        self.triangles.iter_mut().find_map(|((a, b, c), t)| {
+            let a = self.vertices.get(a)?.pos;
+            let b = self.vertices.get(b)?.pos;
+            let c = self.vertices.get(c)?.pos;
             point_in_triangle(p, a, b, c).then(|| t)
         })
     }
@@ -449,10 +441,6 @@ impl Puzzle {
             } else {
                 0
             };
-        }
-
-        for (_, t) in &mut self.triangles {
-            t.animation.step();
         }
     }
 
@@ -506,8 +494,8 @@ impl From<&Puzzle> for PuzzleRepr {
         for (a, b) in &value.solution_edges.0 {
             repr.edges.push((*a, *b));
         }
-        for (_, t) in &value.triangles {
-            repr.triangles.push((t.a, t.b, t.c, t.color));
+        for ((a, b, c), t) in &value.triangles {
+            repr.triangles.push((*a, *b, *c, t.color));
         }
         repr
     }
@@ -559,7 +547,7 @@ pub fn draw_puzzle(
 ) {
     let scale = camera.scale.x;
 
-    for (a, b, c, color) in puzzle.animated_triangles() {
+    for (a, b, c, color) in puzzle.triangles() {
         draw_triangle(
             &mut painter,
             a,
