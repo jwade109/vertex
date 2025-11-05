@@ -578,29 +578,29 @@ pub fn draw_puzzle(
         }
 
         if is_play {
-            fill_circle(
-                &mut painter,
-                v.pos,
-                VERTEX_Z,
-                v.marker_radius.actual * scale,
-                BLACK,
-            );
-            fill_circle(
-                &mut painter,
-                v.pos,
-                VERTEX_Z_2,
-                (v.marker_radius.actual - 4.0) * scale,
-                WHITE,
-            );
+            // fill_circle(
+            //     &mut painter,
+            //     v.pos,
+            //     VERTEX_Z,
+            //     v.marker_radius.actual * scale,
+            //     BLACK,
+            // );
+            // fill_circle(
+            //     &mut painter,
+            //     v.pos,
+            //     VERTEX_Z_2,
+            //     (v.marker_radius.actual - 4.0) * scale,
+            //     WHITE,
+            // );
 
-            let total_edges = v.invisible_count + v.visible_count;
-            for i in 0..total_edges {
-                let color = if i < v.invisible_count { BLACK } else { GRAY };
-                let r = 20.0 * scale;
-                let a = std::f32::consts::PI * (0.5 + 2.0 * i as f32 / total_edges as f32);
-                let p = v.pos + Vec2::from_angle(a) * r;
-                fill_circle(&mut painter, p, VERTEX_Z_2, 4.0 * scale, color);
-            }
+            // let total_edges = v.invisible_count + v.visible_count;
+            // for i in 0..total_edges {
+            //     let color = if i < v.invisible_count { BLACK } else { GRAY };
+            //     let r = 20.0 * scale;
+            //     let a = std::f32::consts::PI * (0.5 + 2.0 * i as f32 / total_edges as f32);
+            //     let p = v.pos + Vec2::from_angle(a) * r;
+            //     fill_circle(&mut painter, p, VERTEX_Z_2, 4.0 * scale, color);
+            // }
         } else {
             let color = if v.is_follow() {
                 BLUE
