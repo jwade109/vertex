@@ -86,28 +86,26 @@ fn editor_ui_system(
                 x.1.size *= 1.5;
             }
 
-            ui.label("Camera");
+            ui.collapsing("Camera", |ui| {
+                let mut scale = camera.scale.x;
 
-            let mut scale = camera.scale.x;
+                ui.add(egui::Slider::new(
+                    &mut camera.translation.x,
+                    -50000.0..=50000.0,
+                ));
+                ui.add(egui::Slider::new(
+                    &mut camera.translation.y,
+                    -50000.0..=50000.0,
+                ));
+                ui.add(egui::Slider::new(
+                    &mut camera.translation.z,
+                    -5000.0..=5000.0,
+                ));
+                ui.add(egui::Slider::new(&mut scale, 0.01..=10.0));
 
-            ui.add(egui::Slider::new(
-                &mut camera.translation.x,
-                -50000.0..=50000.0,
-            ));
-            ui.add(egui::Slider::new(
-                &mut camera.translation.y,
-                -50000.0..=50000.0,
-            ));
-            ui.add(egui::Slider::new(
-                &mut camera.translation.z,
-                -5000.0..=5000.0,
-            ));
-            ui.add(egui::Slider::new(&mut scale, 0.01..=10.0));
-
-            camera.scale.x = scale;
-            camera.scale.y = scale;
-
-            ui.separator();
+                camera.scale.x = scale;
+                camera.scale.y = scale;
+            });
 
             if ui.button("Open Puzzle").clicked() {
                 commands.write_message(FileMessage::OpenFile(FileType::Puzzle));
@@ -171,6 +169,11 @@ fn editor_ui_system(
             }
             ui.add(egui::Slider::new(&mut app.blend_scale, 0.1..=0.9));
 
+            if ui.button("Quantize").clicked() {
+                puzzle.quantize_colors(app.n_colors);
+            }
+            ui.add(egui::Slider::new(&mut app.n_colors, 3..=500));
+
             ui.separator();
 
             ui.label("Layer Opacity");
@@ -178,19 +181,19 @@ fn editor_ui_system(
             ui.add(egui::Slider::new(&mut app.ref_image_alpha, 0.05..=1.0));
             ui.add(egui::Slider::new(&mut app.triangle_alpha, 0.05..=1.0));
 
-            ui.separator();
-
-            if ui.button("Send Text Alert").clicked() {
-                commands.write_message(TextMessage::new("hello!"));
-            }
-
-            ui.separator();
-
-            for sfx in SoundEffect::all() {
-                if ui.button(format!("{:?}", sfx)).clicked() {
-                    commands.write_message(sfx);
+            ui.collapsing("Sounds", |ui| {
+                if ui.button("Send Text Alert").clicked() {
+                    commands.write_message(TextMessage::new("hello!"));
                 }
-            }
+            });
+
+            ui.collapsing("Sounds", |ui| {
+                for sfx in SoundEffect::all() {
+                    if ui.button(format!("{:?}", sfx)).clicked() {
+                        commands.write_message(sfx);
+                    }
+                }
+            });
         });
 }
 

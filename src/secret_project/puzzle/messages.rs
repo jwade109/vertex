@@ -8,9 +8,10 @@ impl Plugin for PuzzleMessagePlugin {
             .add_message::<AddVertex>()
             .add_message::<AddEdge>()
             .add_message::<DeleteEdge>()
+            .add_message::<Quantize>()
             .add_systems(
                 Update,
-                (on_delete_vertex, on_delete_edge, on_add_edge, on_add_vertex),
+                (on_delete_vertex, on_delete_edge, on_add_edge, on_add_vertex, on_quantize),
             )
             .insert_resource(ActiveLine::default());
     }
@@ -30,6 +31,9 @@ pub struct AddEdge(pub usize, pub usize);
 
 #[derive(Message, Debug)]
 pub struct DeleteEdge(pub usize, pub usize);
+
+#[derive(Message, Debug)]
+pub struct Quantize(pub u16);
 
 fn on_add_vertex(mut puzzle: Single<&mut Puzzle>, mut messages: MessageReader<AddVertex>) {
     for msg in messages.read() {
@@ -59,5 +63,11 @@ fn on_add_edge(mut puzzle: Single<&mut Puzzle>, mut messages: MessageReader<AddE
 fn on_delete_edge(mut puzzle: Single<&mut Puzzle>, mut messages: MessageReader<DeleteEdge>) {
     for msg in messages.read() {
         puzzle.remove_solution_edge(msg.0, msg.1);
+    }
+}
+
+fn on_quantize(mut puzzle: Single<&mut Puzzle>, mut messages: MessageReader<Quantize>) {
+    for msg in messages.read() {
+        puzzle.quantize_colors(msg.0);
     }
 }

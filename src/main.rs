@@ -63,6 +63,7 @@ fn on_input_tick(
     mut cursor: ResMut<CursorState>,
     mut puzzle: Single<&mut Puzzle>,
     camera: Single<(&Camera, &GlobalTransform)>,
+    app: Res<Settings>,
 ) {
     let (camera, camera_transform) = *camera;
 
@@ -78,9 +79,14 @@ fn on_input_tick(
 
     // keyboard presses
     if keys.just_pressed(KeyCode::KeyQ) {
-        if let Some(p) = cursor.mouse_pos {
-            puzzle.add_point(p);
-            commands.write_message(SoundEffect::LightPop);
+        if keys.pressed(KeyCode::ControlLeft) {
+            commands.write_message(Quantize(app.n_colors));
+            commands.write_message(SoundEffect::UiThreePop);
+        } else {
+            if let Some(p) = cursor.mouse_pos {
+                puzzle.add_point(p);
+                commands.write_message(SoundEffect::LightPop);
+            }
         }
     }
 

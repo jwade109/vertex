@@ -1,6 +1,9 @@
 use crate::*;
 
 use bevy::prelude::*;
+use kmeans_colors::{get_kmeans, Calculate, Kmeans, MapColor, Sort};
+use palette::cast::{from_component_slice, into_component_slice};
+use palette::{FromColor, IntoColor, Lab, Srgb};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::*;
@@ -24,6 +27,14 @@ fn random_color() -> Srgba {
 #[allow(unused)]
 fn generate_color_palette(n: usize) -> Vec<Srgba> {
     (0..n).map(|_| random_color()).collect()
+}
+
+fn srgba_to_rgb(color: Srgba) -> Srgb {
+    Srgb::from_components((color.red, color.green, color.blue))
+}
+
+fn rgb_to_srgba(color: Srgb) -> Srgba {
+    Srgba::new(color.red, color.green, color.blue, 1.0)
 }
 
 impl Puzzle {
@@ -53,6 +64,56 @@ impl Puzzle {
 
     pub fn update(&mut self) {
         self.update_triangles();
+    }
+
+    pub fn quantize_colors(&mut self, n_colors: u16) {
+        let mut indices = Vec::new();
+        let mut lab = Vec::new();
+        for (k, triangle) in self.triangles.iter() {
+            let l = srgba_to_rgb(triangle.color);
+            indices.push(*k);
+            lab.push(l);
+        }
+
+        if lab.is_empty() {
+            return;
+        }
+
+        let k = n_colors as usize;
+        let runs = 10;
+        let max_iter = 100;
+        let converge = 0.1;
+        let verbose = false;
+        let seed = 0;
+
+        // Iterate over the runs, keep the best results
+        let mut result = Kmeans::new();
+        for i in 0..runs {
+            let run_result = get_kmeans(k, max_iter, converge, verbose, &lab, seed + i as u64);
+            if run_result.score < result.score {
+                result = run_result;
+            }
+        }
+
+        for c in &result.centroids {
+            // let color = lab_to_srgba(c);
+            dbg!(&c);
+        }
+
+        for (i, centroid_id) in result.indices.iter().enumerate() {
+            let k = indices[i];
+            let triangle = self.triangles.get_mut(&k).unwrap();
+            let color = rgb_to_srgba(result.centroids[*centroid_id as usize].clone());
+            triangle.color = color;
+        }
+
+        // Convert indexed colors back to Srgb<u8> for output
+        // let rgb = &result
+        //     .centroids
+        //     .iter()
+        //     .map(|&x| Srgb::from_linear(x.into_color()))
+        //     .collect::<Vec<Srgb<u8>>>();
+        // let buffer = Srgb::map_indices_to_centroids(&rgb, &result.indices);
     }
 
     fn update_triangles(&mut self) {
@@ -336,9 +397,9 @@ impl Puzzle {
 
         if let Some((c, h)) = clicked.zip(hovered) {
             if self.solution_edges.is_edge(c, h) {
-                self.solution_edges.remove_edge(c, h);
+                self.remove_solution_edge(c, h);
             } else {
-                self.solution_edges.add_edge(c, h)
+                self.add_solution_edge(c, h)
             }
         }
 
@@ -526,7 +587,14 @@ pub fn point_in_triangle(test: Vec2, a: Vec2, b: Vec2, c: Vec2) -> bool {
     alpha > 0.0 && beta > 0.0 && gamma > 0.0
 }
 
-pub fn draw_solution_edges(mut painter: ShapePainter, puzzle: Single<&Puzzle>) {
+pub fn draw_solution_edges(
+    mut painter: ShapePainter,
+    puzzle: Single<&Puzzle>,
+    keys: Res<ButtonInput<KeyCode>>,
+) {
+    if keys.pressed(KeyCode::KeyV) {
+        return;
+    }
     for (_, a, _, b) in puzzle.solution_edges() {
         draw_line(&mut painter, a.pos, b.pos, ACTIVE_EDGE_Z, 1.0, BLACK);
     }
@@ -544,6 +612,7 @@ pub fn draw_puzzle(
     puzzle: Single<&Puzzle>,
     camera: Single<&Transform, With<Camera>>,
     editor_mode: Res<State<EditorMode>>,
+    keys: Res<ButtonInput<KeyCode>>,
 ) {
     let scale = camera.scale.x;
 
@@ -566,30 +635,33 @@ pub fn draw_puzzle(
         }
 
         if is_play {
-            // fill_circle(
-            //     &mut painter,
-            //     v.pos,
-            //     VERTEX_Z,
-            //     v.marker_radius.actual * scale,
-            //     BLACK,
-            // );
-            // fill_circle(
-            //     &mut painter,
-            //     v.pos,
-            //     VERTEX_Z_2,
-            //     (v.marker_radius.actual - 4.0) * scale,
-            //     WHITE,
-            // );
+            fill_circle(
+                &mut painter,
+                v.pos,
+                VERTEX_Z,
+                v.marker_radius.actual * scale,
+                BLACK,
+            );
+            fill_circle(
+                &mut painter,
+                v.pos,
+                VERTEX_Z_2,
+                (v.marker_radius.actual - 4.0) * scale,
+                WHITE,
+            );
 
-            // let total_edges = v.invisible_count + v.visible_count;
-            // for i in 0..total_edges {
-            //     let color = if i < v.invisible_count { BLACK } else { GRAY };
-            //     let r = 20.0 * scale;
-            //     let a = std::f32::consts::PI * (0.5 + 2.0 * i as f32 / total_edges as f32);
-            //     let p = v.pos + Vec2::from_angle(a) * r;
-            //     fill_circle(&mut painter, p, VERTEX_Z_2, 4.0 * scale, color);
-            // }
+            let total_edges = v.invisible_count + v.visible_count;
+            for i in 0..total_edges {
+                let color = if i < v.invisible_count { BLACK } else { GRAY };
+                let r = 20.0 * scale;
+                let a = std::f32::consts::PI * (0.5 + 2.0 * i as f32 / total_edges as f32);
+                let p = v.pos + Vec2::from_angle(a) * r;
+                fill_circle(&mut painter, p, VERTEX_Z_2, 4.0 * scale, color);
+            }
         } else {
+            if keys.pressed(KeyCode::KeyV) {
+                return;
+            }
             let color = if v.is_follow() {
                 BLUE
             } else if v.is_clicked {
