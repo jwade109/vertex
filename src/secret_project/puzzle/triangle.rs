@@ -6,7 +6,7 @@ pub struct Triangle {
 }
 
 impl Triangle {
-    pub fn new(a: usize, b: usize, c: usize, color: Srgba) -> Self {
+    pub fn new(color: Srgba) -> Self {
         Self { color }
     }
 }

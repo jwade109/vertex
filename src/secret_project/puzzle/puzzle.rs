@@ -1,9 +1,8 @@
 use crate::*;
 
 use bevy::prelude::*;
-use kmeans_colors::{get_kmeans, Calculate, Kmeans, MapColor, Sort};
-use palette::cast::{from_component_slice, into_component_slice};
-use palette::{FromColor, IntoColor, Lab, Srgb};
+use kmeans_colors::{get_kmeans, Kmeans};
+use palette::Srgb;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::*;
@@ -133,14 +132,14 @@ impl Puzzle {
                         continue;
                     }
                     let color = random_color();
-                    let t = Triangle::new(u, v, w, color);
+                    let t = Triangle::new(color);
                     self.triangles.insert(key, t);
                 }
             }
         }
 
         let mut triangles = self.triangles.clone();
-        triangles.retain(|(a, b, c), t| {
+        triangles.retain(|(a, b, c), _| {
             self.solution_edges.is_edge(*a, *b)
                 && self.solution_edges.is_edge(*a, *c)
                 && self.solution_edges.is_edge(*b, *c)
@@ -535,9 +534,7 @@ impl From<PuzzleRepr> for Puzzle {
         }
 
         for (a, b, c, color) in value.triangles {
-            puzzle
-                .triangles
-                .insert((a, b, c), Triangle::new(a, b, c, color));
+            puzzle.triangles.insert((a, b, c), Triangle::new(color));
         }
 
         puzzle.next_vertex_id = max_id + 1;
