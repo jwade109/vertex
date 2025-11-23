@@ -181,7 +181,7 @@ fn editor_ui_system(
             ui.add(egui::Slider::new(&mut app.ref_image_alpha, 0.05..=1.0));
             ui.add(egui::Slider::new(&mut app.triangle_alpha, 0.05..=1.0));
 
-            ui.collapsing("Sounds", |ui| {
+            ui.collapsing("Alerts", |ui| {
                 if ui.button("Send Text Alert").clicked() {
                     commands.write_message(TextMessage::new("hello!"));
                 }
