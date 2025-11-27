@@ -35,13 +35,6 @@ fn open_images(
             RefImagePath(msg.path.clone()),
             Transform::from_xyz(msg.pos.x, msg.pos.y, REF_IMAGE_Z).with_scale(Vec3::ZERO),
         ));
-
-        commands.write_message(TextMessage::new(format!(
-            "Opened image at \"{}\"",
-            msg.path.display()
-        )));
-
-        commands.write_message(SoundEffect::UiPopUp);
     }
 }
 
