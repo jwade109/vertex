@@ -16,6 +16,7 @@ mod sounds;
 mod take_once;
 mod text;
 mod text_alerts;
+mod hidden_text;
 
 pub use button::*;
 pub use camera::*;
@@ -36,6 +37,7 @@ pub use sounds::*;
 pub use take_once::*;
 pub use text::*;
 pub use text_alerts::*;
+pub use hidden_text::*;
 
 pub use enum_iterator::*;
 pub use std::collections::*;

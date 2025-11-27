@@ -636,6 +636,10 @@ pub fn draw_puzzle(
 
     let is_play = *editor_mode == EditorMode::Play;
 
+    if keys.pressed(KeyCode::KeyV) {
+        return;
+    }
+
     for (_, v) in puzzle.vertices() {
         if v.marker_radius.actual < 1.0 {
             continue;
@@ -666,9 +670,6 @@ pub fn draw_puzzle(
                 fill_circle(&mut painter, p, VERTEX_Z_2, 4.0 * scale, color);
             }
         } else {
-            if keys.pressed(KeyCode::KeyV) {
-                return;
-            }
             let color = if v.is_follow() {
                 BLUE
             } else if v.is_clicked {
