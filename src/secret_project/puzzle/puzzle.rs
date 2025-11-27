@@ -509,58 +509,65 @@ impl Puzzle {
     }
 }
 
+#[derive(Deserialize, Serialize, Debug)]
+pub struct ReferenceImage {
+    path: String,
+    pos: Vec2,
+    size: Vec2,
+}
+
 #[derive(Deserialize, Serialize, Default)]
-struct PuzzleRepr {
+pub struct PuzzleRepr {
     vertices: HashMap<usize, Vec2>,
     edges: Vec<(usize, usize)>,
     triangles: Vec<(usize, usize, usize, Srgba)>,
+    reference_images: Vec<ReferenceImage>,
 }
 
-impl From<PuzzleRepr> for Puzzle {
-    fn from(value: PuzzleRepr) -> Self {
-        let mut puzzle = Puzzle::empty();
-        let mut max_id = 0;
-        puzzle.vertices = value
-            .vertices
-            .into_iter()
-            .map(|(id, p)| {
-                let v = Vertex::new(p);
-                max_id = max_id.max(id);
-                (id, v)
-            })
-            .collect();
-        for (a, b) in value.edges {
-            puzzle.solution_edges.add_edge(a, b);
-        }
-
-        for (a, b, c, color) in value.triangles {
-            puzzle.triangles.insert((a, b, c), Triangle::new(color));
-        }
-
-        puzzle.next_vertex_id = max_id + 1;
-
-        puzzle
+pub fn repr_to_puzzle(value: PuzzleRepr) -> (Puzzle, Vec<ReferenceImage>) {
+    let mut puzzle = Puzzle::empty();
+    let mut max_id = 0;
+    puzzle.vertices = value
+        .vertices
+        .into_iter()
+        .map(|(id, p)| {
+            let v = Vertex::new(p);
+            max_id = max_id.max(id);
+            (id, v)
+        })
+        .collect();
+    for (a, b) in value.edges {
+        puzzle.solution_edges.add_edge(a, b);
     }
+
+    for (a, b, c, color) in value.triangles {
+        puzzle.triangles.insert((a, b, c), Triangle::new(color));
+    }
+
+    puzzle.next_vertex_id = max_id + 1;
+
+    (puzzle, value.reference_images)
 }
 
-impl From<&Puzzle> for PuzzleRepr {
-    fn from(value: &Puzzle) -> Self {
-        let mut repr = PuzzleRepr::default();
-        for (id, p) in &value.vertices {
-            repr.vertices.insert(*id, p.pos);
-        }
-        for (a, b) in &value.solution_edges.0 {
-            repr.edges.push((*a, *b));
-        }
-        for ((a, b, c), t) in &value.triangles {
-            repr.triangles.push((*a, *b, *c, t.color));
-        }
-        repr
+fn puzzle_to_repr(value: &Puzzle, images: Vec<ReferenceImage>) -> PuzzleRepr {
+    let mut repr = PuzzleRepr::default();
+    for (id, p) in &value.vertices {
+        repr.vertices.insert(*id, p.pos);
     }
+    for (a, b) in &value.solution_edges.0 {
+        repr.edges.push((*a, *b));
+    }
+    for ((a, b, c), t) in &value.triangles {
+        repr.triangles.push((*a, *b, *c, t.color));
+    }
+
+    repr.reference_images = images;
+
+    repr
 }
 
 pub fn puzzle_to_file(puzzle: &Puzzle, filepath: &Path) -> Result<(), Box<dyn std::error::Error>> {
-    let repr = PuzzleRepr::from(puzzle);
+    let repr = puzzle_to_repr(puzzle, vec![]);
     let s = serde_yaml::to_string(&repr)?;
     std::fs::write(filepath, s)?;
     Ok(())
@@ -568,11 +575,11 @@ pub fn puzzle_to_file(puzzle: &Puzzle, filepath: &Path) -> Result<(), Box<dyn st
 
 pub fn puzzle_from_file(
     filepath: impl Into<PathBuf>,
-) -> Result<Puzzle, Box<dyn std::error::Error>> {
+) -> Result<(Puzzle, Vec<ReferenceImage>), Box<dyn std::error::Error>> {
     let filepath = filepath.into();
     let s = std::fs::read_to_string(filepath)?;
     let repr: PuzzleRepr = serde_yaml::from_str(&s)?;
-    Ok(Puzzle::from(repr))
+    Ok(repr_to_puzzle(repr))
 }
 
 pub fn point_in_triangle(test: Vec2, a: Vec2, b: Vec2, c: Vec2) -> bool {
@@ -690,11 +697,44 @@ pub fn step_puzzle(mut puzzle: Single<&mut Puzzle>) {
     puzzle.step();
 }
 
+pub fn on_open_puzzle(
+    mut commands: Commands,
+    mut puzzle: Single<&mut Puzzle>,
+    mut msg: MessageReader<OpenPuzzle>,
+    mut open: ResMut<CurrentPuzzle>,
+) {
+    for msg in msg.read() {
+        let path = &msg.0;
+        match puzzle_from_file(&path) {
+            Ok((p, images)) => {
+                **puzzle = p;
+
+                commands.write_message(TextMessage::new(format!(
+                    "Opened puzzle at \"{}\"",
+                    path.display()
+                )));
+
+                for img in images {
+                    println!("Reference image: {:?}", img);
+                }
+
+                open.0 = Some(path.clone());
+
+                commands.write_message(SoundEffect::UiPopUp);
+            }
+            Err(e) => {
+                let s = format!("{:?}", e);
+                commands.write_message(TextMessage::new(s));
+            }
+        }
+    }
+}
+
 pub fn on_load_puzzle(
     mut commands: Commands,
     mut puzzle: Single<&mut Puzzle>,
     mut msg: MessageReader<FileMessage>,
-    mut open: ResMut<OpenPuzzle>,
+    mut open: ResMut<CurrentPuzzle>,
 ) {
     for msg in msg.read() {
         let (filetype, path) = if let FileMessage::Opened(filetype, path) = msg {
@@ -709,13 +749,17 @@ pub fn on_load_puzzle(
             FileType::ReferenceImage => continue,
         }
 
-        if let Ok(p) = puzzle_from_file(&path) {
+        if let Ok((p, images)) = puzzle_from_file(&path) {
             **puzzle = p;
 
             commands.write_message(TextMessage::new(format!(
                 "Opened puzzle at \"{}\"",
                 path.display()
             )));
+
+            for img in images {
+                println!("Reference image: {:?}", img);
+            }
 
             open.0 = Some(path.clone());
 

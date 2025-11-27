@@ -41,6 +41,7 @@ fn main() {
                 draw_game_edges.run_if(in_state(EditorMode::Play)),
                 text_system,
                 on_load_puzzle,
+                on_open_puzzle,
             ),
         )
         .run();
@@ -54,7 +55,24 @@ fn startup(mut commands: Commands, mut _windows: Query<&mut Window, With<Primary
 
     commands.spawn(Puzzle::new());
     commands.spawn(ColorPicker::new());
+
+    let paths = std::fs::read_dir("./puzzles/").unwrap();
+    let mut puzzles = PuzzleList::default();
+
+    for path in paths {
+        if let Ok(path) = path {
+            let path = path.path();
+            let puzzle_file = path.join("puzzle.txt");
+            println!("Name: {}", puzzle_file.display());
+            puzzles.push(puzzle_file);
+        }
+    }
+
+    commands.insert_resource(puzzles);
 }
+
+#[derive(Resource, Debug, Default, Deref, DerefMut)]
+pub struct PuzzleList(Vec<std::path::PathBuf>);
 
 fn on_input_tick(
     mut commands: Commands,

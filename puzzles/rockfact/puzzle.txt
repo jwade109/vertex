@@ -3398,3 +3398,5 @@ triangles:
     green: 0.6392157
     blue: 0.5921569
     alpha: 1.0
+
+reference_images: []

@@ -10,7 +10,7 @@ impl Plugin for EguiEditor {
     fn build(&self, app: &mut App) {
         app.add_plugins(EguiPlugin::default())
             .add_message::<SavePuzzle>()
-            .insert_resource(OpenPuzzle(None))
+            .insert_resource(CurrentPuzzle(None))
             .add_systems(Update, save_puzzle_system)
             .add_systems(
                 EguiPrimaryContextPass,
@@ -25,7 +25,7 @@ pub struct SavePuzzle {
 }
 
 #[derive(Resource)]
-pub struct OpenPuzzle(pub Option<PathBuf>);
+pub struct CurrentPuzzle(pub Option<PathBuf>);
 
 fn save_puzzle_system(
     mut commands: Commands,
@@ -61,8 +61,9 @@ fn editor_ui_system(
     sprites: Query<(Entity, &Sprite, &Transform)>,
     images: Res<Assets<Image>>,
     keys: Res<ButtonInput<KeyCode>>,
-    open_file: Res<OpenPuzzle>,
+    open_file: Res<CurrentPuzzle>,
     sel: Res<SelectedVertices>,
+    puzzle_list: Res<PuzzleList>,
 ) {
     if keys.pressed(KeyCode::ControlLeft) && keys.just_pressed(KeyCode::KeyS) {
         let filepath = open_file.0.clone().unwrap_or("puzzle.txt".into());
@@ -107,79 +108,89 @@ fn editor_ui_system(
                 camera.scale.y = scale;
             });
 
-            if ui.button("Open Puzzle").clicked() {
-                commands.write_message(FileMessage::OpenFile(FileType::Puzzle));
-            }
-
-            if ui.button("Open Image").clicked() {
-                commands.write_message(FileMessage::OpenFile(FileType::ReferenceImage));
-            }
-
-            if ui.button("Complete").clicked() {
-                puzzle.complete();
-            }
-
-            if ui.button("Decomplete").clicked() {
-                puzzle.decomplete();
-            }
-
-            if ui.button("Update").clicked() {
-                puzzle.update();
-            }
-
-            if ui.button("Randomize").clicked() {
-                puzzle.randomize();
-            }
-
-            if ui.button("Triangulate").clicked() {
-                puzzle.triangulate(sel);
-            }
-
-            if ui.button("Update Triangles").clicked() {
-                puzzle.update();
-            }
-
-            if ui.button("Grid").clicked() {
-                puzzle.grid();
-            }
-
-            if ui.button("Clear Triangles").clicked() {
-                puzzle.clear_triangles();
-            }
-
-            if ui.button("Clear").clicked() {
-                **puzzle = Puzzle::empty();
-                for (e, ..) in &sprites {
-                    commands.entity(e).despawn();
+            ui.collapsing("Puzzles", |ui| {
+                for puzzle in puzzle_list.iter() {
+                    if ui.button(format!("{}", puzzle.display())).clicked() {
+                        commands.write_message(OpenPuzzle(puzzle.clone()));
+                    }
                 }
-            }
+            });
 
-            if ui.button("Save to File").clicked() {
-                commands.write_message(SavePuzzle {
-                    filepath: "puzzle.txt".into(),
-                });
-            }
+            ui.collapsing("Editor", |ui| {
+                if ui.button("Open Puzzle").clicked() {
+                    commands.write_message(FileMessage::OpenFile(FileType::Puzzle));
+                }
 
-            ui.separator();
+                if ui.button("Open Image").clicked() {
+                    commands.write_message(FileMessage::OpenFile(FileType::ReferenceImage));
+                }
 
-            ui.label("Color Sampling");
+                if ui.button("Complete").clicked() {
+                    puzzle.complete();
+                }
 
-            if ui.button("Sample Colors").clicked() {
-                sample_colors(&mut puzzle, &sprites, &images, app.blend_scale);
-            }
-            ui.add(egui::Slider::new(&mut app.blend_scale, 0.1..=0.9));
+                if ui.button("Decomplete").clicked() {
+                    puzzle.decomplete();
+                }
 
-            if ui.button("Quantize").clicked() {
-                puzzle.quantize_colors(app.n_colors);
-            }
-            ui.add(egui::Slider::new(&mut app.n_colors, 3..=500));
+                if ui.button("Update").clicked() {
+                    puzzle.update();
+                }
 
-            ui.separator();
+                if ui.button("Randomize").clicked() {
+                    puzzle.randomize();
+                }
 
-            ui.label("Layer Opacity");
+                if ui.button("Triangulate").clicked() {
+                    puzzle.triangulate(sel);
+                }
 
-            ui.add(egui::Slider::new(&mut app.ref_image_alpha, 0.05..=1.0));
-            ui.add(egui::Slider::new(&mut app.triangle_alpha, 0.05..=1.0));
+                if ui.button("Update Triangles").clicked() {
+                    puzzle.update();
+                }
+
+                if ui.button("Grid").clicked() {
+                    puzzle.grid();
+                }
+
+                if ui.button("Clear Triangles").clicked() {
+                    puzzle.clear_triangles();
+                }
+
+                if ui.button("Clear").clicked() {
+                    **puzzle = Puzzle::empty();
+                    for (e, ..) in &sprites {
+                        commands.entity(e).despawn();
+                    }
+                }
+
+                if ui.button("Save to File").clicked() {
+                    commands.write_message(SavePuzzle {
+                        filepath: "puzzle.txt".into(),
+                    });
+                }
+
+                ui.separator();
+
+                ui.label("Color Sampling");
+
+                if ui.button("Sample Colors").clicked() {
+                    sample_colors(&mut puzzle, &sprites, &images, app.blend_scale);
+                }
+                ui.add(egui::Slider::new(&mut app.blend_scale, 0.1..=0.9));
+
+                if ui.button("Quantize").clicked() {
+                    puzzle.quantize_colors(app.n_colors);
+                }
+                ui.add(egui::Slider::new(&mut app.n_colors, 3..=500));
+
+                ui.separator();
+
+                ui.label("Layer Opacity");
+
+                ui.add(egui::Slider::new(&mut app.ref_image_alpha, 0.05..=1.0));
+                ui.add(egui::Slider::new(&mut app.triangle_alpha, 0.05..=1.0));
+            });
 
             ui.collapsing("Alerts", |ui| {
                 if ui.button("Send Text Alert").clicked() {
