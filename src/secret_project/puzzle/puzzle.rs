@@ -511,9 +511,8 @@ impl Puzzle {
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct ReferenceImage {
-    path: String,
-    pos: Vec2,
-    size: Vec2,
+    pub path: PathBuf,
+    pub pos: Vec2,
 }
 
 #[derive(Deserialize, Serialize, Default)]
@@ -566,8 +565,12 @@ fn puzzle_to_repr(value: &Puzzle, images: Vec<ReferenceImage>) -> PuzzleRepr {
     repr
 }
 
-pub fn puzzle_to_file(puzzle: &Puzzle, filepath: &Path) -> Result<(), Box<dyn std::error::Error>> {
-    let repr = puzzle_to_repr(puzzle, vec![]);
+pub fn puzzle_to_file(
+    puzzle: &Puzzle,
+    filepath: &Path,
+    images: Vec<ReferenceImage>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let repr = puzzle_to_repr(puzzle, images);
     let s = serde_yaml::to_string(&repr)?;
     std::fs::write(filepath, s)?;
     Ok(())
@@ -699,11 +702,16 @@ pub fn step_puzzle(mut puzzle: Single<&mut Puzzle>) {
 
 pub fn on_open_puzzle(
     mut commands: Commands,
+    all_windows: Query<Entity, With<RefImageWindow>>,
     mut puzzle: Single<&mut Puzzle>,
     mut msg: MessageReader<OpenPuzzle>,
     mut open: ResMut<CurrentPuzzle>,
 ) {
     for msg in msg.read() {
+        for e in all_windows {
+            commands.entity(e).despawn();
+        }
+
         let path = &msg.0;
         match puzzle_from_file(&path) {
             Ok((p, images)) => {
@@ -715,7 +723,8 @@ pub fn on_open_puzzle(
                 )));
 
                 for img in images {
-                    println!("Reference image: {:?}", img);
+                    println!("Spawn: {:?}", img);
+                    commands.write_message(OpenImage(img));
                 }
 
                 open.0 = Some(path.clone());

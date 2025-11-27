@@ -12,8 +12,36 @@ impl Plugin for ReferenceImagePlugin {
                 draw_windows,
                 sync_sprite_to_window,
                 insert_window_if_needed,
+                open_images,
             ),
         );
+        app.add_message::<OpenImage>();
+    }
+}
+
+#[derive(Message, Debug, Deref)]
+pub struct OpenImage(pub ReferenceImage);
+
+fn open_images(
+    mut commands: Commands,
+    mut messages: MessageReader<OpenImage>,
+    asset_server: Res<AssetServer>,
+) {
+    for msg in messages.read() {
+        let handle = asset_server.load(format!("{}", msg.path.display()));
+
+        commands.spawn((
+            Sprite::from_image(handle),
+            RefImagePath(msg.path.clone()),
+            Transform::from_xyz(msg.pos.x, msg.pos.y, REF_IMAGE_Z).with_scale(Vec3::ZERO),
+        ));
+
+        commands.write_message(TextMessage::new(format!(
+            "Opened image at \"{}\"",
+            msg.path.display()
+        )));
+
+        commands.write_message(SoundEffect::UiPopUp);
     }
 }
 
@@ -42,11 +70,7 @@ fn draw_windows(
 
 const REF_IMAGE_Z: f32 = 0.0;
 
-fn insert_new_image(
-    mut commands: Commands,
-    mut msg: MessageReader<FileMessage>,
-    asset_server: Res<AssetServer>,
-) -> Result {
+fn insert_new_image(mut commands: Commands, mut msg: MessageReader<FileMessage>) -> Result {
     for msg in msg.read() {
         let (filetype, path) = if let FileMessage::Opened(filetype, path) = msg {
             (filetype, path)
@@ -65,22 +89,10 @@ fn insert_new_image(
             continue;
         }
 
-        let handle = asset_server.load(format!("{}", path.display()));
-
-        let x = random(-100.0, 100.0);
-        let y = random(-100.0, 100.0);
-
-        commands.spawn((
-            Sprite::from_image(handle),
-            Transform::from_xyz(x, y, REF_IMAGE_Z).with_scale(Vec3::ZERO),
-        ));
-
-        commands.write_message(TextMessage::new(format!(
-            "Opened image at \"{}\"",
-            path.display()
-        )));
-
-        commands.write_message(SoundEffect::UiPopUp);
+        commands.write_message(OpenImage(ReferenceImage {
+            path: path.clone(),
+            pos: Vec2::ZERO,
+        }));
     }
 
     Ok(())
@@ -134,6 +146,7 @@ fn sync_sprite_to_window(
     }
 }
 
+#[derive(Debug)]
 struct HandleState {
     // is_hovered: bool,
     // is_clicked: bool,
@@ -150,11 +163,14 @@ impl HandleState {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Debug)]
+pub struct RefImagePath(pub PathBuf);
+
+#[derive(Component, Debug)]
 pub struct RefImageWindow {
-    pos: Vec2,
+    pub pos: Vec2,
     dims_actual: Vec2,
-    dims_target: Vec2,
+    pub dims_target: Vec2,
     mouse_delta: Option<Vec2>,
     is_hovered: bool,
     is_clicked: bool,

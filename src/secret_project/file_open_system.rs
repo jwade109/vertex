@@ -63,6 +63,8 @@ fn open_dialogue(mut commands: Commands, mut msg: MessageReader<FileMessage>) {
 
 use futures_lite::future;
 
+use crate::secret_project::ReferenceImage;
+
 fn poll_tasks(mut commands: Commands, mut tasks: Query<(Entity, &mut SelectedFile)>) {
     for (entity, mut sel) in tasks.iter_mut() {
         if let Some(result) = future::block_on(future::poll_once(&mut sel.task)) {

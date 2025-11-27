@@ -30,11 +30,23 @@ pub struct CurrentPuzzle(pub Option<PathBuf>);
 fn save_puzzle_system(
     mut commands: Commands,
     puzzle: Single<&Puzzle>,
+    windows: Query<(&RefImagePath, &RefImageWindow)>,
     mut save: MessageReader<SavePuzzle>,
 ) {
     for evt in save.read() {
+        let mut images = vec![];
+
+        for (path, window) in windows {
+            println!("{}, {}", path.0.display(), window.pos);
+            let img = ReferenceImage {
+                path: path.0.clone(),
+                pos: window.pos,
+            };
+            images.push(img);
+        }
+
         println!("Saving puzzle to {}", evt.filepath.display());
-        match puzzle_to_file(&puzzle, &evt.filepath) {
+        match puzzle_to_file(&puzzle, &evt.filepath, images) {
             Ok(()) => {
                 commands.write_message(TextMessage::new(format!(
                     "Saved puzzle to \"{}\"",
