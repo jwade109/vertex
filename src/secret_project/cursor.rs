@@ -39,6 +39,12 @@ pub enum EditorMode {
     Play,
 }
 
+impl EditorMode {
+    pub fn is_play(&self) -> bool {
+        *self == EditorMode::Play
+    }
+}
+
 fn update_cursor_mode(
     mut commands: Commands,
     keys: Res<ButtonInput<KeyCode>>,
@@ -48,7 +54,7 @@ fn update_cursor_mode(
     if keys.just_pressed(KeyCode::KeyM) {
         next.set(next_cycle(&state.get()));
         commands.write_message(TextMessage::new(format!("Switched to {:?}", *next)));
-        commands.write_message(SoundEffect::UiTrill);
+        commands.write_message(SoundEffect::LightPop);
     }
 }
 

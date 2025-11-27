@@ -9,6 +9,7 @@ impl Plugin for ReferenceImagePlugin {
             (
                 insert_new_image,
                 update_transparency,
+                update_visibility,
                 draw_windows,
                 sync_sprite_to_window,
                 insert_window_if_needed,
@@ -51,11 +52,30 @@ fn update_transparency(app: Res<Settings>, mut query: Query<(&mut Sprite, &RefIm
     }
 }
 
+fn update_visibility(
+    state: Res<State<EditorMode>>,
+    mut windows: Query<&mut Visibility, With<RefImageWindow>>,
+) {
+    let v = match **state {
+        EditorMode::Play => Visibility::Hidden,
+        _ => Visibility::Visible,
+    };
+
+    for mut vis in &mut windows {
+        *vis = v;
+    }
+}
+
 fn draw_windows(
     mut painter: ShapePainter,
     mut text: ResMut<TextPainter>,
     query: Query<&RefImageWindow>,
+    state: Res<State<EditorMode>>,
 ) {
+    if state.is_play() {
+        return;
+    }
+
     for window in &query {
         window.draw(&mut painter, &mut text);
     }

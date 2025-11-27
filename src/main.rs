@@ -42,6 +42,7 @@ fn main() {
                 text_system,
                 on_load_puzzle,
                 on_open_puzzle,
+                enable_debug_view.run_if(state_changed::<EditorMode>),
             ),
         )
         .run();
@@ -73,6 +74,11 @@ fn startup(mut commands: Commands, mut _windows: Query<&mut Window, With<Primary
 
 #[derive(Resource, Debug, Default, Deref, DerefMut)]
 pub struct PuzzleList(Vec<std::path::PathBuf>);
+
+fn enable_debug_view(state: Res<State<EditorMode>>, mut fps: ResMut<FpsOverlayConfig>) {
+    fps.enabled = !state.is_play();
+    fps.frame_time_graph_config.enabled = !state.is_play();
+}
 
 fn on_input_tick(
     mut commands: Commands,
