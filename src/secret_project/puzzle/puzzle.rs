@@ -391,7 +391,7 @@ impl Puzzle {
     pub fn remove_solution_edge(&mut self, a: usize, b: usize) {
         info!("Adding solution edge between {} and {}", a, b);
         self.solution_edges.remove_edge(a, b);
-        self.update_triangles();
+        // self.update_triangles();
     }
 
     fn on_left_click_up(&mut self) {
@@ -605,17 +605,6 @@ pub fn draw_puzzle(
 ) {
     let scale = camera.scale.x;
 
-    // for (a, b, c, color) in puzzle.triangles() {
-    //     draw_triangle(
-    //         &mut painter,
-    //         a,
-    //         b,
-    //         c,
-    //         TRIANGLE_Z,
-    //         color.with_alpha(0.6),
-    //     );
-    // }
-
     let is_play = *editor_mode == EditorMode::Play;
 
     if keys.pressed(KeyCode::KeyV) {
@@ -791,6 +780,8 @@ pub fn update_puzzle_mesh(
                 let mat = MeshMaterial2d(materials.add(ColorMaterial::default()));
                 commands.entity(e).insert((m, mat));
             }
+        } else {
+            commands.entity(e).remove::<Mesh2d>();
         }
     }
 }

@@ -86,13 +86,6 @@ pub fn fill_ring(painter: &mut ShapePainter, p: Vec2, z: f32, ri: f32, ro: f32, 
     painter.set_translation(Vec3::ZERO);
 }
 
-pub fn draw_triangle(painter: &mut ShapePainter, a: Vec2, b: Vec2, c: Vec2, z: f32, color: Srgba) {
-    painter.reset();
-    painter.set_translation(Vec2::ZERO.extend(z));
-    painter.set_color(color);
-    painter.triangle(a, b, c);
-}
-
 pub fn draw_line(
     painter: &mut ShapePainter,
     a: Vec2,
