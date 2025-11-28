@@ -1,4 +1,4 @@
-use bevy::input::mouse::MouseWheel;
+use bevy::input::mouse::{MouseScrollUnit, MouseWheel};
 use bevy::prelude::*;
 
 pub struct CameraControllerPlugin;
@@ -6,7 +6,7 @@ pub struct CameraControllerPlugin;
 impl Plugin for CameraControllerPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Update, (on_keys, insert_component_data))
-            .add_systems(Update, camera_physics);
+            .add_systems(FixedUpdate, camera_physics);
     }
 }
 
@@ -25,7 +25,10 @@ fn insert_component_data(
     }
 }
 
-fn camera_physics(mut camera: Query<(&mut Transform, &mut CameraController)>, time: Res<Time>) {
+fn camera_physics(
+    mut camera: Query<(&mut Transform, &mut CameraController)>,
+    time: Res<Time<Fixed>>,
+) {
     let dt = time.delta_secs();
     for (mut tf, mut ctrl) in &mut camera {
         let sx = tf.scale.x;
@@ -34,8 +37,8 @@ fn camera_physics(mut camera: Query<(&mut Transform, &mut CameraController)>, ti
 
         tf.scale.y = tf.scale.x;
 
-        ctrl.linear_vel *= 0.92;
-        ctrl.zoom_vel *= 0.93;
+        ctrl.linear_vel *= 0.87;
+        ctrl.zoom_vel *= 0.87;
     }
 }
 
@@ -82,6 +85,25 @@ fn on_keys(
         };
 
         for event in mouse_wheel.read() {
+            let zoom_speed = match event.unit {
+                // desktop mice?
+                MouseScrollUnit::Line => {
+                    info!(
+                        "Scroll (line units): vertical: {}, horizontal: {}",
+                        event.y, event.x
+                    );
+                    zoom_speed / 5.0
+                }
+                // trackpad?
+                MouseScrollUnit::Pixel => {
+                    info!(
+                        "Scroll (pixel units): vertical: {}, horizontal: {}",
+                        event.y, event.x
+                    );
+                    zoom_speed / 5.0
+                }
+            };
+
             let delta = -Vec2::new(event.x, event.y);
             ctrl.zoom_vel = if delta.y > 0.0 {
                 zoom_speed

@@ -1,7 +1,5 @@
 use bevy::prelude::*;
 
-use crate::secret_project::HiddenText;
-
 pub struct TextAlertPlugin;
 
 impl Plugin for TextAlertPlugin {
@@ -34,7 +32,6 @@ fn process_messages(
     for msg in msg.read() {
         info!("{}", &msg.0);
 
-        let h = HiddenText::new(msg.0.clone());
         let t = Text::new(msg.0.clone());
         let f = TextFont::from_font_size(55.0).with_font(font.clone());
         let c = TextColor::BLACK;
@@ -62,7 +59,7 @@ fn process_messages(
                 b,
             ))
             .with_children(|builder| {
-                builder.spawn((h, b, t, f, c, s, TextAlert { age: 0.0 }));
+                builder.spawn((b, t, f, c, s, TextAlert { age: 0.0 }));
             });
     }
 }

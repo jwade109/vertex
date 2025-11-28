@@ -53,7 +53,7 @@ fn startup(mut commands: Commands, mut _windows: Query<&mut Window, With<Primary
     commands.insert_resource(ClearColor(Srgba::new(0.9, 0.9, 0.9, 1.0).into()));
     commands.insert_resource(TextPainter::new());
 
-    commands.spawn(Puzzle::new());
+    commands.spawn(Puzzle::new("Random"));
     commands.spawn(ColorPicker::new());
 
     let paths = std::fs::read_dir("./puzzles/").unwrap();

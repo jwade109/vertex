@@ -170,7 +170,7 @@ fn editor_ui_system(
                 }
 
                 if ui.button("Clear").clicked() {
-                    **puzzle = Puzzle::empty();
+                    **puzzle = Puzzle::empty("Empty");
                     for (e, ..) in &sprites {
                         commands.entity(e).despawn();
                     }

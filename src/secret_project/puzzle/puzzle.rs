@@ -9,6 +9,7 @@ use std::path::*;
 
 #[derive(Component)]
 pub struct Puzzle {
+    title: String,
     next_vertex_id: usize,
     vertices: HashMap<usize, Vertex>,
     solution_edges: Edges,
@@ -37,8 +38,9 @@ fn rgb_to_srgba(color: Srgb) -> Srgba {
 }
 
 impl Puzzle {
-    pub fn empty() -> Self {
+    pub fn empty(title: impl Into<String>) -> Self {
         Self {
+            title: title.into(),
             next_vertex_id: 0,
             vertices: HashMap::new(),
             solution_edges: Edges::default(),
@@ -47,10 +49,14 @@ impl Puzzle {
         }
     }
 
-    pub fn new() -> Self {
-        let mut s = Self::empty();
+    pub fn new(title: impl Into<String>) -> Self {
+        let mut s = Self::empty(title);
         s.randomize();
         s
+    }
+
+    pub fn title(&self) -> &str {
+        &self.title
     }
 
     pub fn complete(&mut self) {
@@ -517,6 +523,7 @@ pub struct ReferenceImage {
 
 #[derive(Deserialize, Serialize, Default)]
 pub struct PuzzleRepr {
+    title: String,
     vertices: HashMap<usize, Vec2>,
     edges: Vec<(usize, usize)>,
     triangles: Vec<(usize, usize, usize, Srgba)>,
@@ -524,7 +531,7 @@ pub struct PuzzleRepr {
 }
 
 pub fn repr_to_puzzle(value: PuzzleRepr) -> (Puzzle, Vec<ReferenceImage>) {
-    let mut puzzle = Puzzle::empty();
+    let mut puzzle = Puzzle::empty(value.title);
     let mut max_id = 0;
     puzzle.vertices = value
         .vertices
@@ -719,8 +726,7 @@ pub fn on_open_puzzle(
             Ok((p, images)) => {
                 **puzzle = p;
 
-                let s = format!("{}", path.display());
-                title.reset(s);
+                title.reset(puzzle.title());
 
                 commands.write_message(TextMessage::new(format!(
                     "Opened puzzle at \"{}\"",

@@ -52,7 +52,7 @@ fn header_bar(commands: &mut Commands, font: &TextFont) {
             font.clone().with_font_size(40.0),
             TextColor(Srgba::BLACK.into()),
             Node {
-                margin: UiRect::all(Val::Px(7.0)),
+                margin: UiRect::axes(Val::Px(20.0), Val::Px(7.0)),
                 ..default()
             },
             TextShadow {

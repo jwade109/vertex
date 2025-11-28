@@ -1,3 +1,4 @@
+title: "Rubik's Cube"
 vertices:
   33:
   - -159.0
