@@ -567,16 +567,20 @@ pub fn on_open_puzzle(
     mut msg: MessageReader<OpenPuzzle>,
     mut open: ResMut<CurrentPuzzle>,
     mut title: Single<&mut HiddenText, With<UiTitle>>,
+    mut number: Single<&mut Text, With<UiNumberLabel>>,
 ) {
     for msg in msg.read() {
         for e in all_windows {
             commands.entity(e).despawn();
         }
 
-        let path = &msg.0;
+        let new_number = msg.0;
+        let path = &msg.1;
         match puzzle_from_file(&path) {
             Ok((p, images)) => {
                 **puzzle = p;
+
+                number.0 = format!("#{}", new_number + 1);
 
                 title.reset(puzzle.title());
 

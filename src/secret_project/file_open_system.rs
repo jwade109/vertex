@@ -44,7 +44,7 @@ struct SelectedFile {
 }
 
 #[derive(Message, Debug)]
-pub struct OpenPuzzle(pub PathBuf);
+pub struct OpenPuzzle(pub usize, pub PathBuf);
 
 fn open_dialogue(mut commands: Commands, mut msg: MessageReader<FileMessage>) {
     for msg in msg.read() {

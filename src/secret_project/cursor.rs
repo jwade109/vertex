@@ -10,7 +10,6 @@ impl Plugin for CursorPlugin {
             .add_systems(
                 Update,
                 (
-                    update_cursor_mode,
                     draw_mouse_cursor,
                     draw_selected_vertices.run_if(in_state(EditorMode::Select)),
                     collect_selected_vertices.run_if(in_state(EditorMode::Select)),
@@ -27,12 +26,15 @@ impl Plugin for CursorPlugin {
 #[derive(Resource, Default, Debug)]
 pub struct CursorState {
     pub on_ui: bool,
+    pub on_egui: bool,
     pub mouse_pos: Option<Vec2>,
 }
 
 impl CursorState {
     pub fn get(&self) -> Option<Vec2> {
-        (!self.on_ui).then(|| self.mouse_pos).flatten()
+        (!self.on_ui && !self.on_egui)
+            .then(|| self.mouse_pos)
+            .flatten()
     }
 }
 
@@ -49,19 +51,6 @@ pub enum EditorMode {
 impl EditorMode {
     pub fn is_play(&self) -> bool {
         *self == EditorMode::Play
-    }
-}
-
-fn update_cursor_mode(
-    mut commands: Commands,
-    keys: Res<ButtonInput<KeyCode>>,
-    state: Res<State<EditorMode>>,
-    mut next: ResMut<NextState<EditorMode>>,
-) {
-    if keys.just_pressed(KeyCode::KeyM) {
-        next.set(next_cycle(&state.get()));
-        commands.write_message(TextMessage::new(format!("Switched to {:?}", *next)));
-        commands.write_message(SoundEffect::LightPop);
     }
 }
 

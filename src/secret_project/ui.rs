@@ -33,6 +33,7 @@ fn button_interactions(
         match interaction {
             Interaction::Pressed => {
                 commands.write_message(*msg);
+                commands.write_message(SoundEffect::LightPop);
             }
             Interaction::Hovered => (),
             Interaction::None => (),
@@ -66,23 +67,42 @@ fn header_bar(commands: &mut Commands, font: &TextFont) {
                 justify_content: JustifyContent::Center,
                 ..default()
             },
-            children![(
-                UiTitle,
-                HiddenText::new("Very Long Puzzle Title"),
-                Text::new(String::new()),
-                font.clone().with_font_size(40.0),
-                TextColor(Srgba::BLACK.into()),
-                TextShadow {
-                    offset: Vec2::new(-4.0, 4.0),
-                    color: Srgba::gray(0.2).with_alpha(0.1).into(),
-                },
-            )],
+            children![
+                (
+                    UiNumberLabel,
+                    Node {
+                        margin: UiRect::axes(px(7.0), px(0.0)),
+                        ..default()
+                    },
+                    Text::new("#3"),
+                    font.clone().with_font_size(30.0),
+                    TextColor(Srgba::gray(0.6).into()),
+                    TextShadow {
+                        offset: Vec2::new(-4.0, 4.0),
+                        color: Srgba::gray(0.2).with_alpha(0.1).into(),
+                    },
+                ),
+                (
+                    UiTitle,
+                    HiddenText::new("Very Long Puzzle Title"),
+                    Text::new(String::new()),
+                    font.clone().with_font_size(40.0),
+                    TextColor(Srgba::BLACK.into()),
+                    TextShadow {
+                        offset: Vec2::new(-4.0, 4.0),
+                        color: Srgba::gray(0.2).with_alpha(0.1).into(),
+                    },
+                )
+            ],
         ))
         .with_child(make_button("Next", font, UiMessage::Next));
 }
 
 #[derive(Component)]
 pub struct UiTitle;
+
+#[derive(Component)]
+pub struct UiNumberLabel;
 
 fn footer_bar(commands: &mut Commands, font: &TextFont) {
     // footer bar

@@ -76,7 +76,10 @@ fn editor_ui_system(
     open_file: Res<CurrentPuzzle>,
     sel: Res<SelectedVertices>,
     puzzle_list: Res<PuzzleList>,
+    mut mouse: ResMut<CursorState>,
 ) {
+    mouse.on_egui = false;
+
     if keys.pressed(KeyCode::ControlLeft) && keys.just_pressed(KeyCode::KeyS) {
         let filepath = open_file.0.clone().unwrap_or("puzzle.txt".into());
         commands.write_message(SavePuzzle { filepath });
@@ -86,9 +89,11 @@ fn editor_ui_system(
         commands.write_message(FileMessage::OpenFile(FileType::Any));
     }
 
-    egui::SidePanel::new(Side::Right, "Editor")
-        .exact_width(300.0)
-        .show(contexts.ctx_mut().unwrap(), |ui| {
+    let ctx = contexts.ctx_mut().unwrap();
+
+    egui::Window::new("Editor")
+        // .exact_width(300.0)
+        .show(ctx, |ui| {
             let x = ui.style_mut();
 
             x.spacing.item_spacing.y = 10.0;
@@ -121,10 +126,10 @@ fn editor_ui_system(
             });
 
             ui.collapsing("Puzzles", |ui| {
-                for (name, path) in puzzle_list.iter() {
+                for (i, (name, path)) in puzzle_list.iter().enumerate() {
                     if ui.button(name).clicked() {
                         info!("Opening a puzzle: {}", path.display());
-                        commands.write_message(OpenPuzzle(path.clone()));
+                        commands.write_message(OpenPuzzle(i, path.clone()));
                     }
                 }
             });
@@ -219,6 +224,8 @@ fn editor_ui_system(
                 }
             });
         });
+
+    mouse.on_egui = ctx.is_pointer_over_area();
 }
 
 fn sample_colors(

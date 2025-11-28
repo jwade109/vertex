@@ -3,11 +3,11 @@ use crate::secret_project::*;
 #[derive(Default)]
 pub struct MeshMaker {
     color: LinearRgba,
-    pub positions: Vec<[f32; 3]>,
-    pub normals: Vec<[f32; 3]>,
-    pub uvs: Vec<[f32; 2]>,
-    pub indices: Vec<u32>,
-    pub colors: Vec<[f32; 4]>,
+    positions: Vec<[f32; 3]>,
+    normals: Vec<[f32; 3]>,
+    uvs: Vec<[f32; 2]>,
+    indices: Vec<u32>,
+    colors: Vec<[f32; 4]>,
 }
 
 fn to_arr(p: Vec2) -> [f32; 3] {
