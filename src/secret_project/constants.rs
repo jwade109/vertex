@@ -11,6 +11,7 @@ pub const SOLUTION_EDGES_Z: f32 = 0.41;
 pub const GAME_EDGES_Z: f32 = 0.42;
 pub const REF_IMAGE_BORDER_Z: f32 = 0.43;
 pub const GRID_BOUNDS_Z: f32 = 0.50;
+pub const HOVERED_VERTEX_DEBUG_Z: f32 = 0.51;
 
 pub const ERASER_SCREEN_WIDTH: f32 = 120.0;
 

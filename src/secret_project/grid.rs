@@ -34,10 +34,6 @@ pub fn local_quad(p: Vec2) -> [IVec2; 4] {
     }
 }
 
-pub fn line_to_grid(p: Vec2, q: Vec2) -> Vec<IVec2> {
-    todo!()
-}
-
 pub fn grids_in_radius(p: Vec2, r: f32) -> Vec<IVec2> {
     let center = to_grid(p);
     let offset = (r / GRID_SIZE).ceil() as i32;

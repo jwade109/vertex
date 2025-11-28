@@ -1,21 +1,25 @@
+use bevy::ui::RelativeCursorPosition;
+
 use crate::secret_project::*;
 
 pub struct UiPlugin;
 
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
+        app.add_message::<UiMessage>();
         app.add_systems(Startup, spawn_ui);
-        app.add_systems(Update, button_interactions);
+        app.add_systems(Update, (button_interactions, handle_ui_messages));
     }
 }
 
-#[derive(Message, Component, Debug)]
+#[derive(Message, Component, Debug, Clone, Copy)]
 pub enum UiMessage {
     Previous,
     Next,
     Save,
     Load,
     Reset,
+    SetMode(EditorMode),
 }
 
 fn button_interactions(
@@ -25,6 +29,14 @@ fn button_interactions(
     for (e, interaction, msg) in buttons {
         let s = format!("{}: {:?} {:?}", e, interaction, msg);
         commands.write_message(TextMessage::new(s));
+
+        match interaction {
+            Interaction::Pressed => {
+                commands.write_message(*msg);
+            }
+            Interaction::Hovered => (),
+            Interaction::None => (),
+        }
     }
 }
 
@@ -37,6 +49,7 @@ fn header_bar(commands: &mut Commands, font: &TextFont) {
                 bottom: Srgba::gray(0.5).into(),
                 ..default()
             },
+            RelativeCursorPosition::default(),
             Node {
                 width: percent(100.0),
                 top: Val::ZERO,
@@ -47,19 +60,23 @@ fn header_bar(commands: &mut Commands, font: &TextFont) {
         ))
         .with_child(make_button("Previous", font, UiMessage::Previous))
         .with_child((
-            HiddenText::new("Very Long Puzzle Title"),
-            Text::new(String::new()),
-            font.clone().with_font_size(40.0),
-            TextColor(Srgba::BLACK.into()),
             Node {
                 margin: UiRect::axes(Val::Px(20.0), Val::Px(7.0)),
+                min_width: percent(30.0),
+                justify_content: JustifyContent::Center,
                 ..default()
             },
-            TextShadow {
-                offset: Vec2::new(-4.0, 4.0),
-                color: Srgba::gray(0.2).with_alpha(0.1).into(),
-            },
-            UiTitle,
+            children![(
+                UiTitle,
+                HiddenText::new("Very Long Puzzle Title"),
+                Text::new(String::new()),
+                font.clone().with_font_size(40.0),
+                TextColor(Srgba::BLACK.into()),
+                TextShadow {
+                    offset: Vec2::new(-4.0, 4.0),
+                    color: Srgba::gray(0.2).with_alpha(0.1).into(),
+                },
+            )],
         ))
         .with_child(make_button("Next", font, UiMessage::Next));
 }
@@ -76,6 +93,7 @@ fn footer_bar(commands: &mut Commands, font: &TextFont) {
                 top: Srgba::gray(0.5).into(),
                 ..default()
             },
+            RelativeCursorPosition::default(),
             Node {
                 width: percent(100.0),
                 bottom: Val::ZERO,
@@ -90,12 +108,36 @@ fn footer_bar(commands: &mut Commands, font: &TextFont) {
                 ("Save", UiMessage::Save),
                 ("Load", UiMessage::Load),
                 ("Reset", UiMessage::Reset),
+                ("Edit", UiMessage::SetMode(EditorMode::Edit)),
+                ("Images", UiMessage::SetMode(EditorMode::Images)),
+                ("Select", UiMessage::SetMode(EditorMode::Select)),
+                ("Eraser", UiMessage::SetMode(EditorMode::Eraser)),
+                ("Brush", UiMessage::SetMode(EditorMode::Brush)),
+                ("Play", UiMessage::SetMode(EditorMode::Play)),
             ];
 
             for (name, msg) in button_names {
                 parent.spawn(make_button(name, font, msg));
             }
         });
+}
+
+fn handle_ui_messages(
+    mut state: ResMut<NextState<EditorMode>>,
+    mut messages: MessageReader<UiMessage>,
+) {
+    for msg in messages.read() {
+        match msg {
+            UiMessage::Previous => (),
+            UiMessage::Next => (),
+            UiMessage::Save => (),
+            UiMessage::Load => (),
+            UiMessage::Reset => (),
+            UiMessage::SetMode(m) => {
+                state.set(*m);
+            }
+        }
+    }
 }
 
 fn make_button(s: impl Into<String>, font: &TextFont, msg: UiMessage) -> impl Bundle {

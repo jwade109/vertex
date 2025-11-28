@@ -10,7 +10,7 @@ pub struct Puzzle {
     title: String,
     next_vertex_id: usize,
     vertices: HashMap<usize, Vertex>,
-    solution_edges: Edges,
+    pub solution_edges: Edges,
     game_edges: Edges,
     triangles: HashMap<(usize, usize, usize), Triangle>,
 }
@@ -292,8 +292,8 @@ impl Puzzle {
         self.vertices.get(&n)
     }
 
+    #[deprecated(note = "This is inefficient. Use the LUT")]
     pub fn vertex_at(&self, p: Vec2, max_radius: f32) -> Option<usize> {
-        // TODO use lut
         let mut res = None;
         for (i, v) in &self.vertices {
             let d = v.pos.distance(p);
@@ -354,34 +354,6 @@ impl Puzzle {
         self.update_triangles();
     }
 
-    fn on_right_click_down(&mut self, commands: &mut Commands) {
-        // TODO get rid of this function.
-        if let Some(id) = self.get_hovered_vertex() {
-            commands.write_message(DeleteVertex(id));
-        }
-    }
-
-    fn on_left_click_down(&mut self) {
-        for (_, vertex) in &mut self.vertices {
-            if vertex.is_hovered {
-                vertex.is_clicked = true;
-            }
-        }
-        // self.update();
-    }
-
-    fn get_hovered_vertex(&self) -> Option<usize> {
-        self.vertices
-            .iter()
-            .find_map(|(id, v)| v.is_hovered.then(|| *id))
-    }
-
-    pub fn get_clicked_vertex(&self) -> Option<usize> {
-        self.vertices
-            .iter()
-            .find_map(|(id, v)| v.is_clicked.then(|| *id))
-    }
-
     pub fn add_solution_edge(&mut self, a: usize, b: usize) {
         info!("Adding solution edge between {} and {}", a, b);
         self.solution_edges.add_edge(a, b);
@@ -391,84 +363,7 @@ impl Puzzle {
     pub fn remove_solution_edge(&mut self, a: usize, b: usize) {
         info!("Adding solution edge between {} and {}", a, b);
         self.solution_edges.remove_edge(a, b);
-        // self.update_triangles();
-    }
-
-    fn on_left_click_up(&mut self) {
-        let clicked = self.get_clicked_vertex();
-        let hovered = self.get_hovered_vertex();
-
-        if let Some((c, h)) = clicked.zip(hovered) {
-            if self.solution_edges.is_edge(c, h) {
-                self.remove_solution_edge(c, h);
-            } else {
-                self.add_solution_edge(c, h)
-            }
-        }
-
-        for (_, v) in &mut self.vertices {
-            v.is_clicked = false;
-        }
-
-        // self.update();
-    }
-
-    pub fn set_cursor_position(
-        &mut self,
-        p: &mut TakeOnce<Vec2>,
-        scale: f32,
-        mut active_line: ResMut<ActiveLine>,
-    ) {
-        let pos = p.take();
-        for (_, v) in &mut self.vertices {
-            if !v.is_follow() {
-                v.is_hovered = false;
-            }
-            let base_radius = 8.0;
-            let extra = if let Some(pos) = pos {
-                let d = pos.distance(v.pos) / scale;
-                7.0 * (1.0 - d / 200.0).clamp(0.0, 1.0)
-            } else {
-                0.0
-            };
-            // v.marker_radius.target = base_radius + extra;
-            if v.is_follow() {
-                if let Some(p) = pos {
-                    v.pos += (p - v.pos) * 0.25;
-                }
-            }
-        }
-
-        if let Some(pos) = pos {
-            if let Some(id) = self.vertex_at(pos, CLICK_TARGET_SIZE_PIXELS * scale) {
-                if let Some(v) = self.vertices.get_mut(&id) {
-                    v.is_hovered = true;
-                }
-            }
-        }
-
-        active_line.0 = || -> Option<(usize, Vec2)> {
-            let pos = pos?;
-            let idx = self.get_clicked_vertex()?;
-            Some((idx, pos))
-        }();
-    }
-
-    pub fn on_input(&mut self, input: &mut InputMessage, commands: &mut Commands) {
-        if input.is_right_pressed() {
-            self.on_right_click_down(commands);
-            input.dont_propagate();
-        } else if input.is_left_pressed() {
-            self.on_left_click_down();
-            input.dont_propagate();
-        } else if input.is_left_released() {
-            self.on_left_click_up();
-            input.dont_propagate();
-        } else if input.is_right_released() {
-            // TODO
-            // self.on_right_click_down(&mut t);
-            // input.dont_propagate();
-        }
+        self.update_triangles();
     }
 
     fn get_triangle_at(&mut self, p: Vec2) -> Option<&mut Triangle> {
@@ -480,7 +375,7 @@ impl Puzzle {
         })
     }
 
-    pub fn set_color(&mut self, p: Vec2, color: Srgba) {
+    pub fn set_triangle_color(&mut self, p: Vec2, color: Srgba) {
         if let Some(t) = self.get_triangle_at(p) {
             t.color = color;
         }
@@ -637,15 +532,7 @@ pub fn draw_puzzle(
                 fill_circle(&mut painter, p, VERTEX_Z_2, 4.0 * scale, color);
             }
         } else {
-            let color = if v.is_follow() {
-                BLUE
-            } else if v.is_clicked {
-                RED
-            } else if v.is_hovered {
-                GREEN
-            } else {
-                BLACK
-            };
+            let color = BLACK;
             let dims = Vec2::splat(10.0) * scale;
             draw_rect(
                 &mut painter,
@@ -662,10 +549,10 @@ pub fn draw_puzzle(
 pub fn draw_cursor_line(
     mut painter: ShapePainter,
     puzzle: Single<&Puzzle>,
-    active_line: Res<ActiveLine>,
+    vinfo: Res<CursorVertexInfo>,
     state: Res<State<EditorMode>>,
 ) {
-    if let Some(line) = active_line.0 {
+    if let Some(line) = vinfo.active_line {
         if let Some(start) = puzzle.vertex_n(line.0) {
             let color = if state.is_play() { BLACK } else { RED };
             draw_line(&mut painter, start.pos, line.1, ACTIVE_LINE_Z, 5.0, color);

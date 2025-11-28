@@ -27,11 +27,13 @@ impl HiddenChar {
 #[derive(Component, Debug, Default)]
 pub struct HiddenText {
     chars: Vec<HiddenChar>,
+    timer: Timer,
 }
 
 impl HiddenText {
     pub fn new(s: impl Into<String>) -> Self {
         let mut ret = Self::default();
+        ret.timer = Timer::from_seconds(0.1, TimerMode::Repeating);
         ret.reset(s);
         ret
     }
@@ -44,10 +46,15 @@ impl HiddenText {
             .collect();
     }
 
-    pub fn update(&mut self) {
-        for c in &mut self.chars {
-            if rand() < 0.05 {
-                c.hidden = false;
+    pub fn update(&mut self, delta: std::time::Duration) {
+        self.timer.tick(delta);
+
+        if self.timer.just_finished() {
+            for c in &mut self.chars {
+                if c.hidden {
+                    c.hidden = false;
+                    break;
+                }
             }
         }
     }
@@ -57,9 +64,9 @@ impl HiddenText {
     }
 }
 
-fn update_hidden_text(mut query: Query<&mut HiddenText>) {
+fn update_hidden_text(mut query: Query<&mut HiddenText>, time: Res<Time>) {
     for mut text in &mut query {
-        text.update();
+        text.update(time.delta());
     }
 }
 

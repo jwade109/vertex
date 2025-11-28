@@ -1,11 +1,13 @@
 mod edge;
-mod vertex;
+mod messages;
+mod plugin;
 mod puzzle;
 mod triangle;
-mod messages;
+mod vertex;
 
 pub use edge::*;
-pub use vertex::*;
+pub use messages::*;
+pub use plugin::*;
 pub use puzzle::*;
 pub use triangle::*;
-pub use messages::*;
+pub use vertex::*;

@@ -28,7 +28,7 @@ fn add_particles(
     keys: Res<ButtonInput<KeyCode>>,
     cursor: Res<CursorState>,
 ) {
-    let p = if let Some(p) = cursor.mouse_pos {
+    let p = if let Some(p) = cursor.get() {
         p
     } else {
         return;

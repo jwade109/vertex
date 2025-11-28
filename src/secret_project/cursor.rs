@@ -26,10 +26,17 @@ impl Plugin for CursorPlugin {
 
 #[derive(Resource, Default, Debug)]
 pub struct CursorState {
+    pub on_ui: bool,
     pub mouse_pos: Option<Vec2>,
 }
 
-#[derive(States, Debug, Clone, PartialEq, Eq, Hash, Sequence)]
+impl CursorState {
+    pub fn get(&self) -> Option<Vec2> {
+        (!self.on_ui).then(|| self.mouse_pos).flatten()
+    }
+}
+
+#[derive(States, Debug, Clone, Copy, PartialEq, Eq, Hash, Sequence)]
 pub enum EditorMode {
     Edit,
     Images,
@@ -65,7 +72,7 @@ pub fn draw_mouse_cursor(
 ) {
     let scale = camera.scale.x;
 
-    if let Some(p) = cursor.mouse_pos {
+    if let Some(p) = cursor.get() {
         fill_circle(&mut painter, p, CURSOR_Z, 5.0 * scale, GRAY.with_alpha(0.3));
     }
 }
@@ -106,10 +113,6 @@ pub fn collect_selected_vertices(
     mut sel: ResMut<SelectedVertices>,
     keys: Res<ButtonInput<KeyCode>>,
 ) {
-    if let Some(v) = puzzle.get_clicked_vertex() {
-        sel.insert(v);
-    }
-
     if keys.just_pressed(KeyCode::KeyC) {
         sel.0.clear();
     }
@@ -132,7 +135,7 @@ fn do_eraser(
 ) {
     let scale = camera.scale.x;
 
-    let p = match cursor.mouse_pos {
+    let p = match cursor.get() {
         Some(p) => p,
         _ => return,
     };
@@ -192,7 +195,7 @@ fn do_brush(
 ) {
     let scale = camera.scale.x;
 
-    let p = match cursor.mouse_pos {
+    let p = match cursor.get() {
         Some(p) => p,
         _ => return,
     };
@@ -238,7 +241,7 @@ fn do_select(
 ) {
     let scale = camera.scale.x;
 
-    let p = match cursor.mouse_pos {
+    let p = match cursor.get() {
         Some(p) => p,
         _ => return,
     };

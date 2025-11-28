@@ -123,6 +123,7 @@ fn editor_ui_system(
             ui.collapsing("Puzzles", |ui| {
                 for (name, path) in puzzle_list.iter() {
                     if ui.button(name).clicked() {
+                        info!("Opening a puzzle: {}", path.display());
                         commands.write_message(OpenPuzzle(path.clone()));
                     }
                 }
@@ -266,7 +267,6 @@ fn sample_colors(
             let iter = ca.iter().chain(cb.iter()).chain(cc.iter()).chain(cd.iter());
             let n = iter.clone().count();
             if n == 0 {
-                // puzzle.set_color(center, Srgba::NONE);
                 continue;
             }
 
@@ -278,7 +278,7 @@ fn sample_colors(
                 blended.blue += color.blue / n as f32;
             }
 
-            puzzle.set_color(center, blended);
+            puzzle.set_triangle_color(center, blended);
         }
     }
 }

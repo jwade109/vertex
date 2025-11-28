@@ -256,33 +256,11 @@ impl RefImageWindow {
         self.hovered_animation.step();
         self.clicked_animation.target = self.is_clicked as u8 as f32;
         self.clicked_animation.step();
-
-        // TODO
         self.dims_actual += (self.dims_target - self.dims_actual) * self.hovered_animation.alpha;
     }
 
     pub fn should_despawn(&self) -> bool {
         self.should_despawn
-    }
-
-    pub fn set_cursor_position(&mut self, t: &mut TakeOnce<Vec2>) {
-        if let Some(p) = t.peek() {
-            let p = *p;
-            self.is_hovered = self.contains_basic_bb(p) || self.contains_corners(p);
-            if self.is_hovered || self.is_clicked {
-                t.take();
-                if self.is_clicked {
-                    if let Some(q) = self.mouse_delta {
-                        self.pos = p - q;
-                    }
-                } else {
-                    self.mouse_delta = Some(p - self.pos);
-                }
-            }
-        } else {
-            self.is_hovered = false;
-            self.is_clicked = false;
-        }
     }
 
     fn on_left_click_pressed(&mut self) {

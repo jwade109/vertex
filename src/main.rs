@@ -25,6 +25,7 @@ fn main() {
         .add_plugins(PuzzleMessagePlugin)
         .add_plugins(HiddenTextPlugin)
         .add_plugins(UiPlugin)
+        .add_plugins(PuzzlePlugin)
         .add_systems(Startup, startup)
         .add_systems(
             Update,
@@ -107,7 +108,7 @@ fn on_input_tick(
             commands.write_message(Quantize(app.n_colors));
             commands.write_message(SoundEffect::UiThreePop);
         } else {
-            if let Some(p) = cursor.mouse_pos {
+            if let Some(p) = cursor.get() {
                 puzzle.add_point(p);
                 commands.write_message(SoundEffect::LightPop);
             }

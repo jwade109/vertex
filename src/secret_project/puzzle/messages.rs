@@ -11,14 +11,16 @@ impl Plugin for PuzzleMessagePlugin {
             .add_message::<Quantize>()
             .add_systems(
                 Update,
-                (on_delete_vertex, on_delete_edge, on_add_edge, on_add_vertex, on_quantize),
-            )
-            .insert_resource(ActiveLine::default());
+                (
+                    on_delete_vertex,
+                    on_delete_edge,
+                    on_add_edge,
+                    on_add_vertex,
+                    on_quantize,
+                ),
+            );
     }
 }
-
-#[derive(Resource, Debug, Deref, DerefMut, Default)]
-pub struct ActiveLine(pub Option<(usize, Vec2)>);
 
 #[derive(Message, Debug)]
 pub struct AddVertex(pub Vec2);
