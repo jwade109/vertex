@@ -707,6 +707,7 @@ pub fn on_open_puzzle(
     mut puzzle: Single<&mut Puzzle>,
     mut msg: MessageReader<OpenPuzzle>,
     mut open: ResMut<CurrentPuzzle>,
+    mut title: Single<&mut HiddenText, With<UiTitle>>,
 ) {
     for msg in msg.read() {
         for e in all_windows {
@@ -717,6 +718,9 @@ pub fn on_open_puzzle(
         match puzzle_from_file(&path) {
             Ok((p, images)) => {
                 **puzzle = p;
+
+                let s = format!("{}", path.display());
+                title.reset(s);
 
                 commands.write_message(TextMessage::new(format!(
                     "Opened puzzle at \"{}\"",

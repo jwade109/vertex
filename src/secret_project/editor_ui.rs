@@ -206,7 +206,7 @@ fn editor_ui_system(
 
             ui.collapsing("Alerts", |ui| {
                 if ui.button("Send Text Alert").clicked() {
-                    commands.write_message(TextMessage::new("hello!"));
+                    commands.write_message(TextMessage::new("This is a text alert!"));
                 }
             });
 

@@ -25,20 +25,24 @@ impl HiddenChar {
     }
 }
 
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Default)]
 pub struct HiddenText {
     chars: Vec<HiddenChar>,
 }
 
 impl HiddenText {
     pub fn new(s: impl Into<String>) -> Self {
-        Self {
-            chars: s
-                .into()
-                .chars()
-                .map(|c| HiddenChar { c, hidden: true })
-                .collect(),
-        }
+        let mut ret = Self::default();
+        ret.reset(s);
+        ret
+    }
+
+    pub fn reset(&mut self, s: impl Into<String>) {
+        self.chars = s
+            .into()
+            .chars()
+            .map(|c| HiddenChar { c, hidden: true })
+            .collect();
     }
 
     pub fn update(&mut self) {

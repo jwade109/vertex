@@ -2,11 +2,6 @@ pub mod secret_project;
 
 use secret_project::*;
 
-use bevy::asset::UnapprovedPathMode;
-use bevy::prelude::*;
-use bevy::window::PrimaryWindow;
-use bevy_dev_tools::fps_overlay::*;
-
 fn main() {
     App::new()
         .add_plugins(
@@ -30,6 +25,7 @@ fn main() {
         .add_plugins(ParticlePlugin)
         .add_plugins(PuzzleMessagePlugin)
         .add_plugins(HiddenTextPlugin)
+        .add_plugins(UiPlugin)
         .add_systems(Startup, startup)
         .add_systems(FixedUpdate, step_puzzle)
         .add_systems(
@@ -46,14 +42,12 @@ fn main() {
                 enable_debug_view.run_if(state_changed::<EditorMode>),
             ),
         )
+        // `InputFocus` must be set for accessibility to recognize the button.
+        .init_resource::<InputFocus>()
         .run();
 }
 
-fn startup(
-    mut commands: Commands,
-    mut _windows: Query<&mut Window, With<PrimaryWindow>>,
-    asset_server: Res<AssetServer>,
-) {
+fn startup(mut commands: Commands, mut _windows: Query<&mut Window, With<PrimaryWindow>>) {
     commands.spawn(Camera2d);
     commands.insert_resource(Settings::new());
     commands.insert_resource(ClearColor(Srgba::new(0.9, 0.9, 0.9, 1.0).into()));
@@ -75,78 +69,6 @@ fn startup(
     }
 
     commands.insert_resource(puzzles);
-
-    let font = asset_server.load("EBGaramond-Medium.ttf");
-
-    // header bar
-    commands
-        .spawn((
-            BackgroundColor(Srgba::WHITE.with_alpha(0.5).into()),
-            BorderColor {
-                bottom: Srgba::gray(0.5).into(),
-                ..default()
-            },
-            Node {
-                width: percent(100.0),
-                top: Val::ZERO,
-                border: UiRect::bottom(Val::Px(3.0)),
-                justify_content: JustifyContent::Center,
-                ..default()
-            },
-        ))
-        .with_child((
-            HiddenText::new("Very Long Puzzle Title"),
-            Text::new(String::new()),
-            TextFont::from_font_size(40.0).with_font(font.clone()),
-            TextColor(Srgba::BLACK.into()),
-            Node {
-                margin: UiRect::vertical(Val::Px(7.0)),
-                ..default()
-            },
-            TextShadow {
-                offset: Vec2::new(-4.0, 4.0),
-                color: Srgba::gray(0.2).with_alpha(0.1).into(),
-            },
-        ));
-
-    // footer bar
-    commands
-        .spawn((
-            BackgroundColor(Srgba::WHITE.with_alpha(0.3).into()),
-            BorderColor {
-                top: Srgba::gray(0.5).into(),
-                ..default()
-            },
-            Node {
-                width: percent(100.0),
-                bottom: Val::ZERO,
-                position_type: PositionType::Absolute,
-                border: UiRect::top(Val::Px(3.0)),
-                justify_content: JustifyContent::Center,
-                ..default()
-            },
-        ))
-        .with_children(|parent| {
-            for _ in 0..17 {
-                parent.spawn((
-                    HiddenText::new("Stuff"),
-                    Text::new(String::new()),
-                    TextFont::from_font_size(24.0).with_font(font.clone()),
-                    TextColor(Srgba::BLACK.into()),
-                    BorderColor::all(Color::BLACK),
-                    BackgroundColor(TEAL.with_alpha(0.3).into()),
-                    Node {
-                        margin: UiRect::all(Val::Px(7.0)),
-                        border: UiRect::all(Val::Px(3.0)),
-                        ..default()
-                    },
-                    TextShadow {
-                        offset: Vec2::new(-4.0, 4.0),
-                        color: Srgba::gray(0.2).with_alpha(0.1).into(),
-                    },
-                ));
-            }
-        });
 }
 
 #[derive(Resource, Debug, Default, Deref, DerefMut)]

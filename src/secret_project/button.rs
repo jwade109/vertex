@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use crate::*;
+use crate::secret_project::*;
 
 use bevy::color::palettes::css::*;
 use bevy::color::Srgba;
