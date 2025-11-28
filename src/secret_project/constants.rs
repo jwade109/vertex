@@ -1,5 +1,4 @@
 pub const TRIANGLE_Z: f32 = 0.09;
-pub const TRIANGLE_DEBUG_MESH_Z: f32 = 0.31;
 pub const ACTIVE_EDGE_Z: f32 = 0.11;
 pub const VERTEX_Z: f32 = 0.2;
 pub const EDGE_CENTER_HANDLE_Z: f32 = 0.19;
@@ -8,6 +7,10 @@ pub const ACTIVE_LINE_Z: f32 = 0.22;
 pub const SELECTED_VERTEX_Z: f32 = 0.23;
 pub const CURSOR_Z: f32 = 0.3;
 pub const BUTTON_TEXT_Z: f32 = 0.4;
+pub const SOLUTION_EDGES_Z: f32 = 0.41;
+pub const GAME_EDGES_Z: f32 = 0.42;
+pub const REF_IMAGE_BORDER_Z: f32 = 0.43;
+pub const GRID_BOUNDS_Z: f32 = 0.50;
 
 pub const ERASER_SCREEN_WIDTH: f32 = 120.0;
 

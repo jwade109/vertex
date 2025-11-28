@@ -18,9 +18,16 @@ pub fn fill_rect(painter: &mut ShapePainter, origin: Vec2, dims: Vec2, color: Sr
     painter.rect(dims);
 }
 
-pub fn draw_rect(painter: &mut ShapePainter, origin: Vec2, dims: Vec2, t: f32, color: Srgba) {
+pub fn draw_rect(
+    painter: &mut ShapePainter,
+    origin: Vec2,
+    dims: Vec2,
+    t: f32,
+    color: Srgba,
+    z_index: f32,
+) {
     painter.reset();
-    painter.set_translation((origin + dims / 2.0).extend(1000.0));
+    painter.set_translation((origin + dims / 2.0).extend(z_index));
     painter.set_color(color);
     painter.hollow = true;
     painter.thickness = t;
@@ -28,11 +35,11 @@ pub fn draw_rect(painter: &mut ShapePainter, origin: Vec2, dims: Vec2, t: f32, c
     painter.rect(dims);
 }
 
-pub fn draw_grid(painter: &mut ShapePainter, g: IVec2, t: f32, color: Srgba) {
+pub fn draw_grid(painter: &mut ShapePainter, g: IVec2, t: f32, color: Srgba, z_index: f32) {
     let bounds = grid_bounds(g);
     let origin = bounds.0;
     let dims = bounds.1 - bounds.0;
-    draw_rect(painter, origin, dims, t, color);
+    draw_rect(painter, origin, dims, t, color, z_index);
 }
 
 pub fn fill_grid(painter: &mut ShapePainter, g: IVec2, color: Srgba) {
@@ -55,14 +62,7 @@ pub fn fill_circle(painter: &mut ShapePainter, p: Vec2, z: f32, r: f32, color: S
     painter.set_translation(Vec3::ZERO);
 }
 
-pub fn draw_circle(
-    painter: &mut ShapePainter,
-    p: Vec2,
-    z: f32,
-    r: f32,
-    t: f32,
-    color: Srgba,
-) {
+pub fn draw_circle(painter: &mut ShapePainter, p: Vec2, z: f32, r: f32, t: f32, color: Srgba) {
     if r < 0.01 {
         return;
     }

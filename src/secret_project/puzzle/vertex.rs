@@ -1,8 +1,8 @@
-use crate::*;
+use crate::secret_project::*;
 
 pub struct Vertex {
     pub pos: Vec2,
-    pub marker_radius: Lpf,
+    // pub marker_radius: Lpf,
     pub is_clicked: bool,
     pub is_hovered: bool,
     pub follow_count: u32,
@@ -16,7 +16,7 @@ impl Vertex {
     pub fn new(pos: Vec2) -> Self {
         Self {
             pos,
-            marker_radius: Lpf::new(7.0, 4.0, 0.3),
+            // marker_radius: Lpf::new(7.0, 4.0, 0.3),
             is_clicked: false,
             is_hovered: false,
             follow_count: 0,

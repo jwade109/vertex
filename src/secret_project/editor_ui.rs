@@ -121,9 +121,9 @@ fn editor_ui_system(
             });
 
             ui.collapsing("Puzzles", |ui| {
-                for puzzle in puzzle_list.iter() {
-                    if ui.button(format!("{}", puzzle.display())).clicked() {
-                        commands.write_message(OpenPuzzle(puzzle.clone()));
+                for (name, path) in puzzle_list.iter() {
+                    if ui.button(name).clicked() {
+                        commands.write_message(OpenPuzzle(path.clone()));
                     }
                 }
             });

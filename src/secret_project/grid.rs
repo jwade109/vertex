@@ -1,8 +1,5 @@
-#![allow(unused)]
+use crate::secret_project::*;
 
-use crate::*;
-
-use bevy::prelude::*;
 use std::collections::{HashMap, HashSet};
 
 pub const GRID_SIZE: f32 = 100.0;
@@ -155,6 +152,6 @@ fn update_lut(puzzle: Single<&Puzzle>, mut lut: ResMut<SpatialLookup>) {
 
 fn draw_occupied_cells(mut painter: ShapePainter, lut: Res<SpatialLookup>) {
     for g in lut.occupied_vertex() {
-        draw_grid(&mut painter, g, 2.0, GRAY.with_alpha(0.2));
+        draw_grid(&mut painter, g, 2.0, GRAY.with_alpha(0.2), GRID_BOUNDS_Z);
     }
 }

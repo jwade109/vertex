@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use crate::secret_project::*;
 
 #[derive(Resource)]
 pub struct Settings {

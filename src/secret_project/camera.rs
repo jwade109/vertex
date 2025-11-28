@@ -1,5 +1,5 @@
+use crate::secret_project::*;
 use bevy::input::mouse::{MouseScrollUnit, MouseWheel};
-use bevy::prelude::*;
 
 pub struct CameraControllerPlugin;
 

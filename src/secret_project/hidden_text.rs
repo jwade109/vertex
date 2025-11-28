@@ -1,5 +1,4 @@
 use crate::secret_project::*;
-use bevy::prelude::*;
 
 pub struct HiddenTextPlugin;
 

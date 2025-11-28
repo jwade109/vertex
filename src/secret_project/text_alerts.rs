@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use crate::secret_project::*;
 
 pub struct TextAlertPlugin;
 

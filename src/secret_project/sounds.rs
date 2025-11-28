@@ -1,4 +1,5 @@
-use bevy::prelude::*;
+use crate::secret_project::*;
+
 use bevy::audio::Volume;
 
 pub struct SoundPlugin;

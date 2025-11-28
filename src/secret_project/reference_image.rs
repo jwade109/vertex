@@ -303,7 +303,7 @@ impl RefImageWindow {
         let anim_hw = self.dims_actual / 2.0 + Vec2::splat(extra_w);
         let t = 2.0 + self.hovered_animation.actual * 4.0;
         let color = GRAY.mix(&BLACK, self.hovered_animation.actual);
-        draw_rect(painter, self.pos - anim_hw, anim_hw * 2.0, t, color);
+        draw_rect(painter, self.pos - anim_hw, anim_hw * 2.0, t, color, REF_IMAGE_BORDER_Z);
 
         let r = self.handle_radius();
         for (corner, handle) in self.handles() {

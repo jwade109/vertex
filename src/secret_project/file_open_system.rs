@@ -1,7 +1,8 @@
-use bevy::prelude::*;
 use bevy::tasks::{AsyncComputeTaskPool, Task};
 use rfd::FileDialog;
 use std::path::PathBuf;
+
+use crate::secret_project::*;
 
 pub struct FilePlugin;
 
@@ -60,10 +61,6 @@ fn open_dialogue(mut commands: Commands, mut msg: MessageReader<FileMessage>) {
         commands.spawn(SelectedFile { id: *id, task });
     }
 }
-
-use futures_lite::future;
-
-use crate::secret_project::ReferenceImage;
 
 fn poll_tasks(mut commands: Commands, mut tasks: Query<(Entity, &mut SelectedFile)>) {
     for (entity, mut sel) in tasks.iter_mut() {

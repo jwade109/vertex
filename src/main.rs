@@ -14,7 +14,6 @@ fn main() {
         .add_plugins(Shape2dPlugin::default())
         .add_plugins(bevy_framepace::FramepacePlugin)
         .add_plugins(FilePlugin)
-        .add_plugins(ButtonPlugin)
         .add_plugins(ReferenceImagePlugin)
         .add_plugins(EguiEditor)
         .add_plugins(TextAlertPlugin)
@@ -27,7 +26,6 @@ fn main() {
         .add_plugins(HiddenTextPlugin)
         .add_plugins(UiPlugin)
         .add_systems(Startup, startup)
-        .add_systems(FixedUpdate, step_puzzle)
         .add_systems(
             Update,
             (
@@ -39,6 +37,7 @@ fn main() {
                 text_system,
                 on_load_puzzle,
                 on_open_puzzle,
+                update_puzzle_mesh,
                 enable_debug_view.run_if(state_changed::<EditorMode>),
             ),
         )
@@ -54,7 +53,6 @@ fn startup(mut commands: Commands, mut _windows: Query<&mut Window, With<Primary
     commands.insert_resource(TextPainter::new());
 
     commands.spawn(Puzzle::new("Random"));
-    commands.spawn(ColorPicker::new());
 
     let paths = std::fs::read_dir("./puzzles/").unwrap();
     let mut puzzles = PuzzleList::default();
@@ -64,7 +62,9 @@ fn startup(mut commands: Commands, mut _windows: Query<&mut Window, With<Primary
             let path = path.path();
             let puzzle_file = path.join("puzzle.txt");
             println!("Name: {}", puzzle_file.display());
-            puzzles.push(puzzle_file);
+            if let Ok((puzzle, _)) = puzzle_from_file(puzzle_file.clone()) {
+                puzzles.push((puzzle.title().to_string(), puzzle_file));
+            }
         }
     }
 
@@ -72,7 +72,7 @@ fn startup(mut commands: Commands, mut _windows: Query<&mut Window, With<Primary
 }
 
 #[derive(Resource, Debug, Default, Deref, DerefMut)]
-pub struct PuzzleList(Vec<std::path::PathBuf>);
+pub struct PuzzleList(Vec<(String, std::path::PathBuf)>);
 
 fn enable_debug_view(state: Res<State<EditorMode>>, mut fps: ResMut<FpsOverlayConfig>) {
     fps.enabled = !state.is_play();

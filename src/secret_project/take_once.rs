@@ -2,7 +2,7 @@
 
 use bevy::input::mouse::*;
 use bevy::input::*;
-use bevy::prelude::*;
+use crate::secret_project::*;
 
 pub struct TakeOnce<T>(Option<T>);
 

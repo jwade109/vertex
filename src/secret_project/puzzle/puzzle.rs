@@ -1,6 +1,4 @@
-use crate::*;
-
-use bevy::prelude::*;
+use crate::secret_project::*;
 use kmeans_colors::{get_kmeans, Kmeans};
 use palette::Srgb;
 use serde::{Deserialize, Serialize};
@@ -433,7 +431,7 @@ impl Puzzle {
             } else {
                 0.0
             };
-            v.marker_radius.target = base_radius + extra;
+            // v.marker_radius.target = base_radius + extra;
             if v.is_follow() {
                 if let Some(p) = pos {
                     v.pos += (p - v.pos) * 0.25;
@@ -485,28 +483,6 @@ impl Puzzle {
     pub fn set_color(&mut self, p: Vec2, color: Srgba) {
         if let Some(t) = self.get_triangle_at(p) {
             t.color = color;
-        }
-    }
-
-    pub fn step(&mut self) {
-        let is_complete = self.is_complete();
-
-        for (_, v) in &mut self.vertices {
-            if v.is_clicked && v.is_hovered {
-                v.marker_radius.target = 25.0;
-            } else if is_complete && v.visible_count > 0 {
-                v.marker_radius.target = 0.0;
-            } else if v.invisible_count == 0 && v.visible_count > 0 {
-                v.marker_radius.target = 3.0;
-            }
-
-            v.marker_radius.step();
-
-            v.follow_count = if v.is_clicked && v.is_hovered {
-                (v.follow_count + 1).min(MAX_FOLLOW_COUNT)
-            } else {
-                0
-            };
         }
     }
 
@@ -610,19 +586,18 @@ pub fn draw_solution_edges(
         return;
     }
     for (_, a, _, b) in puzzle.solution_edges() {
-        draw_line(&mut painter, a.pos, b.pos, ACTIVE_EDGE_Z, 1.0, BLACK);
+        draw_line(&mut painter, a.pos, b.pos, SOLUTION_EDGES_Z, 1.0, BLACK);
     }
 }
 
 pub fn draw_game_edges(mut painter: ShapePainter, puzzle: Single<&Puzzle>) {
     for (a, b) in puzzle.game_edges() {
-        draw_line(&mut painter, a.pos, b.pos, ACTIVE_EDGE_Z, 3.0, GRAY);
+        draw_line(&mut painter, a.pos, b.pos, GAME_EDGES_Z, 3.0, GRAY);
     }
 }
 
 pub fn draw_puzzle(
     mut painter: ShapePainter,
-    app: Res<Settings>,
     puzzle: Single<&Puzzle>,
     camera: Single<&Transform, With<Camera>>,
     editor_mode: Res<State<EditorMode>>,
@@ -630,16 +605,16 @@ pub fn draw_puzzle(
 ) {
     let scale = camera.scale.x;
 
-    for (a, b, c, color) in puzzle.triangles() {
-        draw_triangle(
-            &mut painter,
-            a,
-            b,
-            c,
-            TRIANGLE_Z,
-            color.with_alpha(app.triangle_alpha),
-        );
-    }
+    // for (a, b, c, color) in puzzle.triangles() {
+    //     draw_triangle(
+    //         &mut painter,
+    //         a,
+    //         b,
+    //         c,
+    //         TRIANGLE_Z,
+    //         color.with_alpha(0.6),
+    //     );
+    // }
 
     let is_play = *editor_mode == EditorMode::Play;
 
@@ -648,23 +623,19 @@ pub fn draw_puzzle(
     }
 
     for (_, v) in puzzle.vertices() {
-        if v.marker_radius.actual < 1.0 {
-            continue;
-        }
+        // if v.marker_radius.actual < 1.0 {
+        //     continue;
+        // }
+
+        let radius = 4.0;
 
         if is_play {
-            fill_circle(
-                &mut painter,
-                v.pos,
-                VERTEX_Z,
-                v.marker_radius.actual * scale,
-                BLACK,
-            );
+            fill_circle(&mut painter, v.pos, VERTEX_Z, radius * scale, BLACK);
             fill_circle(
                 &mut painter,
                 v.pos,
                 VERTEX_Z_2,
-                (v.marker_radius.actual - 4.0) * scale,
+                (radius - 4.0) * scale,
                 WHITE,
             );
 
@@ -687,7 +658,14 @@ pub fn draw_puzzle(
                 BLACK
             };
             let dims = Vec2::splat(10.0) * scale;
-            draw_rect(&mut painter, v.pos - dims / 2.0, dims, 3.0, color);
+            draw_rect(
+                &mut painter,
+                v.pos - dims / 2.0,
+                dims,
+                3.0,
+                color,
+                GRID_BOUNDS_Z,
+            );
         }
     }
 }
@@ -696,16 +674,14 @@ pub fn draw_cursor_line(
     mut painter: ShapePainter,
     puzzle: Single<&Puzzle>,
     active_line: Res<ActiveLine>,
+    state: Res<State<EditorMode>>,
 ) {
     if let Some(line) = active_line.0 {
         if let Some(start) = puzzle.vertex_n(line.0) {
-            draw_line(&mut painter, start.pos, line.1, ACTIVE_LINE_Z, 3.0, ORANGE);
+            let color = if state.is_play() { BLACK } else { RED };
+            draw_line(&mut painter, start.pos, line.1, ACTIVE_LINE_Z, 5.0, color);
         }
     }
-}
-
-pub fn step_puzzle(mut puzzle: Single<&mut Puzzle>) {
-    puzzle.step();
 }
 
 pub fn on_open_puzzle(
@@ -784,6 +760,37 @@ pub fn on_load_puzzle(
             open.0 = Some(path.clone());
 
             commands.write_message(SoundEffect::UiPopUp);
+        }
+    }
+}
+
+pub fn generate_mesh(puzzle: &Puzzle) -> Option<Mesh> {
+    let mut builder = MeshMaker::default();
+
+    for (a, b, c, color) in puzzle.triangles() {
+        builder.set_color(color.into());
+        builder.triangle([a, b, c]);
+    }
+
+    (!builder.is_empty()).then(|| builder.build())
+}
+
+pub fn update_puzzle_mesh(
+    mut commands: Commands,
+    mut puzzles: Query<(Entity, &Puzzle, Option<&mut Mesh2d>), Changed<Puzzle>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+) {
+    for (e, puzzle, mut mesh_comp) in &mut puzzles {
+        info!("Changed!");
+        if let Some(mesh) = generate_mesh(puzzle) {
+            if let Some(m) = &mut mesh_comp {
+                **m = Mesh2d(meshes.add(mesh));
+            } else {
+                let m = Mesh2d(meshes.add(mesh));
+                let mat = MeshMaterial2d(materials.add(ColorMaterial::default()));
+                commands.entity(e).insert((m, mat));
+            }
         }
     }
 }
