@@ -425,11 +425,11 @@ pub struct ReferenceImage {
 
 #[derive(Deserialize, Serialize, Default)]
 pub struct PuzzleFileStorage {
-    title: String,
-    vertices: HashMap<usize, Vec2>,
-    edges: Vec<(usize, usize)>,
-    triangles: Vec<(usize, usize, usize, Srgba)>,
-    reference_images: Vec<ReferenceImage>,
+    pub title: String,
+    pub vertices: HashMap<usize, Vec2>,
+    pub edges: Vec<(usize, usize)>,
+    pub triangles: Vec<(usize, usize, usize, Srgba)>,
+    pub reference_images: Vec<ReferenceImage>,
 }
 
 pub fn repr_to_puzzle(value: PuzzleFileStorage) -> (Puzzle, Vec<ReferenceImage>) {
