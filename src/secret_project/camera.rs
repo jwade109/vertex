@@ -92,7 +92,7 @@ fn on_keys(
                         "Scroll (line units): vertical: {}, horizontal: {}",
                         event.y, event.x
                     );
-                    zoom_speed / 5.0
+                    zoom_speed * event.y.abs()
                 }
                 // trackpad?
                 MouseScrollUnit::Pixel => {
@@ -100,7 +100,7 @@ fn on_keys(
                         "Scroll (pixel units): vertical: {}, horizontal: {}",
                         event.y, event.x
                     );
-                    zoom_speed / 5.0
+                    zoom_speed * event.y.abs()
                 }
             };
 

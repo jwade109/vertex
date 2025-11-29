@@ -20,6 +20,7 @@ pub enum UiMessage {
     Load,
     Reset,
     SetMode(EditorMode),
+    Autosolver,
 }
 
 fn button_interactions(
@@ -134,6 +135,7 @@ fn footer_bar(commands: &mut Commands, font: &TextFont) {
                 ("Eraser", UiMessage::SetMode(EditorMode::Eraser)),
                 ("Brush", UiMessage::SetMode(EditorMode::Brush)),
                 ("Play", UiMessage::SetMode(EditorMode::Play)),
+                ("Autosolver", UiMessage::Autosolver),
             ];
 
             for (name, msg) in button_names {
@@ -143,8 +145,11 @@ fn footer_bar(commands: &mut Commands, font: &TextFont) {
 }
 
 fn handle_ui_messages(
+    mut commands: Commands,
     mut state: ResMut<NextState<EditorMode>>,
     mut messages: MessageReader<UiMessage>,
+    mut puzzle: Single<&mut Puzzle>,
+    mut solver: ResMut<Autosolver>,
 ) {
     for msg in messages.read() {
         match msg {
@@ -152,9 +157,15 @@ fn handle_ui_messages(
             UiMessage::Next => (),
             UiMessage::Save => (),
             UiMessage::Load => (),
-            UiMessage::Reset => (),
+            UiMessage::Reset => {
+                puzzle.game_edges.clear();
+            }
             UiMessage::SetMode(m) => {
                 state.set(*m);
+            }
+            UiMessage::Autosolver => {
+                solver.toggle();
+                commands.write_message(TextMessage::new("Toggled Autosolver"));
             }
         }
     }

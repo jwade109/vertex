@@ -11,6 +11,7 @@ impl Plugin for PuzzlePlugin {
             (
                 update_vertex_info,
                 get_rel_cursor_info,
+                draw_vertices,
                 draw_vertex_cursor_info.run_if(not(in_state(EditorMode::Play))),
                 draw_solution_edges.run_if(not(in_state(EditorMode::Play))),
                 draw_game_edges.run_if(in_state(EditorMode::Play)),
@@ -120,6 +121,9 @@ pub fn draw_solution_edges(
 }
 
 fn draw_game_edges(mut painter: ShapePainter, puzzle: Single<&Puzzle>) {
+    if puzzle.is_complete() {
+        return;
+    }
     for (a, b) in puzzle.game_edges() {
         draw_line(&mut painter, a.pos, b.pos, GAME_EDGES_Z, 3.0, BLACK);
     }

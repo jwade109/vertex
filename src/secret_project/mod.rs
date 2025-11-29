@@ -1,3 +1,4 @@
+mod autosolver;
 mod camera;
 mod constants;
 mod cursor;
@@ -18,6 +19,7 @@ mod text;
 mod text_alerts;
 mod ui;
 
+pub use autosolver::*;
 pub use camera::*;
 pub use constants::*;
 pub use cursor::*;

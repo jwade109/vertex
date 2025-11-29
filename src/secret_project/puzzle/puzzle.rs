@@ -11,7 +11,7 @@ pub struct Puzzle {
     next_vertex_id: usize,
     vertices: HashMap<usize, Vertex>,
     pub solution_edges: Edges,
-    game_edges: Edges,
+    pub game_edges: Edges,
     triangles: HashMap<(usize, usize, usize), Triangle>,
 }
 
@@ -459,6 +459,7 @@ pub fn repr_to_puzzle(value: PuzzleRepr) -> (Puzzle, Vec<ReferenceImage>) {
 
 fn puzzle_to_repr(value: &Puzzle, images: Vec<ReferenceImage>) -> PuzzleRepr {
     let mut repr = PuzzleRepr::default();
+    repr.title = value.title().to_string();
     for (id, p) in &value.vertices {
         repr.vertices.insert(*id, p.pos);
     }
@@ -527,7 +528,7 @@ pub fn save_progress(puzzle: &Puzzle, filename: &Path) -> Result<(), Box<dyn std
     Ok(())
 }
 
-pub fn draw_puzzle(
+pub fn draw_vertices(
     mut painter: ShapePainter,
     puzzle: Single<&Puzzle>,
     camera: Single<&Transform, With<Camera>>,
@@ -539,6 +540,10 @@ pub fn draw_puzzle(
     let is_play = *editor_mode == EditorMode::Play;
 
     if keys.pressed(KeyCode::KeyV) {
+        return;
+    }
+
+    if is_play && puzzle.is_complete() {
         return;
     }
 

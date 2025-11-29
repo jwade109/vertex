@@ -26,12 +26,12 @@ fn main() {
         .add_plugins(HiddenTextPlugin)
         .add_plugins(UiPlugin)
         .add_plugins(PuzzlePlugin)
+        .add_plugins(AutoSolverPlugin)
         .add_systems(Startup, startup)
         .add_systems(
             Update,
             (
                 on_input_tick,
-                draw_puzzle,
                 draw_cursor_line,
                 text_system,
                 on_load_puzzle,
