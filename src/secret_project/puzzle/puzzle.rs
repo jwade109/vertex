@@ -604,9 +604,9 @@ pub struct PuzzleInfo {
 }
 
 #[derive(Resource, Debug, Default, Deref, DerefMut)]
-pub struct PuzzleList(HashMap<usize, PuzzleInfo>);
+pub struct PuzzleIndex(HashMap<usize, PuzzleInfo>);
 
-impl PuzzleList {
+impl PuzzleIndex {
     pub fn sorted_list<'a>(&'a self) -> Vec<(usize, &'a PuzzleInfo)> {
         let mut list: Vec<(usize, &PuzzleInfo)> =
             self.0.iter().map(|(id, info)| (*id, info)).collect();
@@ -615,15 +615,15 @@ impl PuzzleList {
     }
 }
 
-pub fn on_open_puzzle(
+pub fn open_puzzle_by_id(
     mut commands: Commands,
-    list: Res<PuzzleList>,
+    list: Res<PuzzleIndex>,
     all_windows: Query<Entity, With<RefImageWindow>>,
     mut puzzle: Single<&mut Puzzle>,
     mut msg: MessageReader<OpenPuzzleById>,
     mut open: ResMut<CurrentPuzzle>,
     mut title: Single<&mut HiddenText, With<UiTitle>>,
-    mut number: Single<&mut Text, With<UiNumberLabel>>,
+    mut number: Query<&mut Text, With<UiNumberLabel>>,
 ) {
     for msg in msg.read() {
         for e in all_windows {
@@ -631,7 +631,7 @@ pub fn on_open_puzzle(
         }
         let id = msg.0;
 
-        let info = match list.get(&id) {
+        let info: &PuzzleInfo = match list.get(&id) {
             Some(info) => info,
             _ => continue,
         };
@@ -640,7 +640,9 @@ pub fn on_open_puzzle(
             Ok((p, images)) => {
                 **puzzle = p;
 
-                number.0 = format!("#{}", id);
+                for mut number in &mut number {
+                    number.0 = format!("#{}", id);
+                }
 
                 title.reset(puzzle.title());
 

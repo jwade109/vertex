@@ -74,6 +74,7 @@ fn process_messages(
                     border: UiRect::all(Val::Px(border_width)),
                     ..default()
                 },
+                ZIndex(2),
                 b,
             ))
             .with_children(|builder| {

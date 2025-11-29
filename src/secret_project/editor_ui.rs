@@ -1,8 +1,6 @@
 use crate::*;
 
 use bevy_egui::{egui, EguiContexts, EguiPlugin, EguiPrimaryContextPass};
-use egui::containers::panel::Side;
-use std::path::PathBuf;
 
 pub struct EguiEditor;
 
@@ -31,7 +29,7 @@ fn save_puzzle_system(
     windows: Query<(&RefImagePath, &RefImageWindow)>,
     save: MessageReader<SavePuzzle>,
     current: Res<CurrentPuzzle>,
-    puzzle_list: Res<PuzzleList>,
+    puzzle_list: Res<PuzzleIndex>,
 ) {
     if save.is_empty() {
         return;
@@ -85,7 +83,7 @@ fn editor_ui_system(
     images: Res<Assets<Image>>,
     keys: Res<ButtonInput<KeyCode>>,
     sel: Res<SelectedVertices>,
-    puzzle_list: Res<PuzzleList>,
+    puzzle_list: Res<PuzzleIndex>,
     mut mouse: ResMut<CursorState>,
 ) {
     mouse.on_egui = false;

@@ -9,7 +9,7 @@ impl Plugin for PuzzlePlugin {
         app.add_systems(
             Update,
             (
-                update_vertex_info,
+                update_cursor_vertex_info,
                 get_rel_cursor_info,
                 draw_vertices,
                 draw_vertex_cursor_info.run_if(not(in_state(EditorMode::Play))),
@@ -47,7 +47,7 @@ fn get_rel_cursor_info(query: Query<&RelativeCursorPosition>, mut cursor: ResMut
     }
 }
 
-fn update_vertex_info(
+fn update_cursor_vertex_info(
     mut commands: Commands,
     mut vinfo: ResMut<CursorVertexInfo>,
     camera: Single<&Transform, With<Camera>>,

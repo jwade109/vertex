@@ -75,7 +75,6 @@ fn update_visibility(
 
 fn draw_windows(
     mut painter: ShapePainter,
-    mut text: ResMut<TextPainter>,
     query: Query<&RefImageWindow>,
     state: Res<State<EditorMode>>,
 ) {
@@ -84,7 +83,7 @@ fn draw_windows(
     }
 
     for window in &query {
-        window.draw(&mut painter, &mut text);
+        window.draw(&mut painter);
     }
 }
 
@@ -283,7 +282,7 @@ impl RefImageWindow {
         }
     }
 
-    fn draw(&self, painter: &mut ShapePainter, _text: &mut TextPainter) {
+    fn draw(&self, painter: &mut ShapePainter) {
         let extra_w = 15.0 * self.clicked_animation.actual;
         let anim_hw = self.dims_actual / 2.0 + Vec2::splat(extra_w);
         let t = 2.0 + self.hovered_animation.actual * 4.0;

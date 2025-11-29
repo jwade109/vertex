@@ -6,7 +6,6 @@ impl Plugin for CursorPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(CursorState::default())
             .insert_resource(SelectedVertices::default())
-            .insert_state(EditorMode::Edit)
             .add_systems(
                 Update,
                 (
@@ -35,22 +34,6 @@ impl CursorState {
         (!self.on_ui && !self.on_egui)
             .then(|| self.mouse_pos)
             .flatten()
-    }
-}
-
-#[derive(States, Debug, Clone, Copy, PartialEq, Eq, Hash, Sequence)]
-pub enum EditorMode {
-    Edit,
-    Images,
-    Select,
-    Eraser,
-    Brush,
-    Play,
-}
-
-impl EditorMode {
-    pub fn is_play(&self) -> bool {
-        *self == EditorMode::Play
     }
 }
 

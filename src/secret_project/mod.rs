@@ -14,8 +14,8 @@ mod puzzle;
 mod reference_image;
 mod settings;
 mod sounds;
+mod states;
 mod take_once;
-mod text;
 mod text_alerts;
 mod ui;
 
@@ -36,8 +36,8 @@ pub use puzzle::*;
 pub use reference_image::*;
 pub use settings::*;
 pub use sounds::*;
+pub use states::*;
 pub use take_once::*;
-pub use text::*;
 pub use text_alerts::*;
 pub use ui::*;
 

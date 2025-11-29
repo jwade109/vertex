@@ -31,27 +31,31 @@ fn main() {
             (
                 on_input_tick,
                 draw_cursor_line,
-                text_system,
-                on_open_puzzle,
+                open_puzzle_by_id,
                 update_puzzle_mesh,
                 enable_debug_view.run_if(state_changed::<EditorMode>),
             ),
         )
+        .insert_state(EditorMode::Edit)
+        .insert_state(LoadingState::Loading)
         // `InputFocus` must be set for accessibility to recognize the button.
         .init_resource::<InputFocus>()
         .run();
 }
 
-fn startup(mut commands: Commands, mut _windows: Query<&mut Window, With<PrimaryWindow>>) {
+fn startup(
+    mut commands: Commands,
+    mut _windows: Query<&mut Window, With<PrimaryWindow>>,
+    mut loading: ResMut<NextState<LoadingState>>,
+) {
     commands.spawn(Camera2d);
     commands.insert_resource(Settings::new());
     commands.insert_resource(ClearColor(Srgba::new(0.9, 0.9, 0.9, 1.0).into()));
-    commands.insert_resource(TextPainter::new());
 
     commands.spawn(Puzzle::new("Random"));
 
     let paths = std::fs::read_dir("./puzzles/").unwrap();
-    let mut puzzles = PuzzleList::default();
+    let mut puzzles = PuzzleIndex::default();
 
     for (id, path) in paths.enumerate() {
         if let Ok(path) = path {
@@ -69,6 +73,8 @@ fn startup(mut commands: Commands, mut _windows: Query<&mut Window, With<Primary
     }
 
     commands.insert_resource(puzzles);
+
+    loading.set(LoadingState::Done);
 }
 
 fn enable_debug_view(state: Res<State<EditorMode>>, mut fps: ResMut<FpsOverlayConfig>) {
