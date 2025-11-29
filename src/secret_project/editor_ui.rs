@@ -234,7 +234,10 @@ fn sample_colors(
     images: &Res<Assets<Image>>,
     blend_scale: f32,
 ) {
-    let triangles: Vec<_> = puzzle.triangles().map(|(a, b, c, _)| (a, b, c)).collect();
+    let triangles: Vec<_> = puzzle
+        .triangles(false)
+        .map(|(a, b, c, _)| (a, b, c))
+        .collect();
 
     for (a, b, c) in triangles {
         let center = (a + b + c) / 3.0;

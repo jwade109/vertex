@@ -330,13 +330,25 @@ impl Puzzle {
         })
     }
 
-    pub fn triangles(&self) -> impl Iterator<Item = (Vec2, Vec2, Vec2, Srgba)> + use<'_> {
-        self.triangles.iter().filter_map(|((a, b, c), t)| {
+    pub fn triangles(
+        &self,
+        is_play: bool,
+    ) -> impl Iterator<Item = (Vec2, Vec2, Vec2, Srgba)> + use<'_> {
+        self.triangles.iter().filter_map(move |((a, b, c), t)| {
             if !self.solution_edges.is_edge(*a, *b)
                 || !self.solution_edges.is_edge(*a, *c)
                 || !self.solution_edges.is_edge(*b, *c)
             {
                 return None;
+            }
+
+            if is_play {
+                if !self.game_edges.is_edge(*a, *b)
+                    || !self.game_edges.is_edge(*a, *c)
+                    || !self.game_edges.is_edge(*b, *c)
+                {
+                    return None;
+                }
             }
 
             let a = self.vertex_n(*a)?.pos;
@@ -360,10 +372,29 @@ impl Puzzle {
         self.update_triangles();
     }
 
+    pub fn add_game_edge(&mut self, a: usize, b: usize) {
+        info!("Adding game edge between {} and {}", a, b);
+        self.game_edges.add_edge(a, b);
+    }
+
     pub fn remove_solution_edge(&mut self, a: usize, b: usize) {
         info!("Adding solution edge between {} and {}", a, b);
         self.solution_edges.remove_edge(a, b);
         self.update_triangles();
+    }
+
+    pub fn remove_game_edge(&mut self, a: usize, b: usize) {
+        info!("Removing game edge between {} and {}", a, b);
+        self.solution_edges.add_edge(a, b);
+    }
+
+    pub fn toggle_edge(&mut self, a: usize, b: usize, is_play: bool) {
+        if is_play {
+            self.game_edges.toggle(a, b);
+        } else {
+            self.solution_edges.toggle(a, b);
+            self.update_triangles();
+        }
     }
 
     fn get_triangle_at(&mut self, p: Vec2) -> Option<&mut Triangle> {
@@ -621,10 +652,10 @@ pub fn on_load_puzzle(
     }
 }
 
-pub fn generate_mesh(puzzle: &Puzzle) -> Option<Mesh> {
+pub fn generate_mesh(puzzle: &Puzzle, is_play: bool) -> Option<Mesh> {
     let mut builder = MeshMaker::default();
 
-    for (a, b, c, color) in puzzle.triangles() {
+    for (a, b, c, color) in puzzle.triangles(is_play) {
         builder.set_color(color.into());
         builder.triangle([a, b, c]);
     }
@@ -634,13 +665,18 @@ pub fn generate_mesh(puzzle: &Puzzle) -> Option<Mesh> {
 
 pub fn update_puzzle_mesh(
     mut commands: Commands,
-    mut puzzles: Query<(Entity, &Puzzle, Option<&mut Mesh2d>), Changed<Puzzle>>,
+    mut puzzles: Query<(Entity, Ref<Puzzle>, Option<&mut Mesh2d>)>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
+    state: Res<State<EditorMode>>,
 ) {
+    let is_play = state.is_play();
     for (e, puzzle, mut mesh_comp) in &mut puzzles {
-        info!("Changed!");
-        if let Some(mesh) = generate_mesh(puzzle) {
+        if !puzzle.is_changed() && !state.is_changed() {
+            continue;
+        }
+        info!("Mesh update (changed by {})", puzzle.changed_by());
+        if let Some(mesh) = generate_mesh(&puzzle, is_play) {
             if let Some(m) = &mut mesh_comp {
                 **m = Mesh2d(meshes.add(mesh));
             } else {

@@ -25,6 +25,14 @@ impl Edges {
         self.0.remove(&key);
     }
 
+    pub fn toggle(&mut self, a: usize, b: usize) {
+        if self.is_edge(a, b) {
+            self.remove_edge(a, b);
+        } else {
+            self.add_edge(a, b);
+        }
+    }
+
     pub fn is_edge(&self, a: usize, b: usize) -> bool {
         let key = normalize_edge(a, b);
         self.0.contains(&key)

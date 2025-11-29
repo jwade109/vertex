@@ -8,6 +8,7 @@ impl Plugin for PuzzleMessagePlugin {
             .add_message::<AddVertex>()
             .add_message::<AddEdge>()
             .add_message::<DeleteEdge>()
+            .add_message::<ToggleEdge>()
             .add_message::<Quantize>()
             .add_systems(
                 Update,
@@ -17,6 +18,7 @@ impl Plugin for PuzzleMessagePlugin {
                     on_add_edge,
                     on_add_vertex,
                     on_quantize,
+                    on_toggle_edge,
                 ),
             );
     }
@@ -33,6 +35,9 @@ pub struct AddEdge(pub usize, pub usize);
 
 #[derive(Message, Debug)]
 pub struct DeleteEdge(pub usize, pub usize);
+
+#[derive(Message, Debug)]
+pub struct ToggleEdge(pub usize, pub usize);
 
 #[derive(Message, Debug)]
 pub struct Quantize(pub u16);
@@ -56,15 +61,42 @@ fn on_delete_vertex(
     }
 }
 
-fn on_add_edge(mut puzzle: Single<&mut Puzzle>, mut messages: MessageReader<AddEdge>) {
+fn on_add_edge(
+    mut puzzle: Single<&mut Puzzle>,
+    mut messages: MessageReader<AddEdge>,
+    state: Res<State<EditorMode>>,
+) {
     for msg in messages.read() {
-        puzzle.add_solution_edge(msg.0, msg.1);
+        if state.is_play() {
+            puzzle.add_game_edge(msg.0, msg.1);
+        } else {
+            puzzle.add_solution_edge(msg.0, msg.1);
+        }
     }
 }
 
-fn on_delete_edge(mut puzzle: Single<&mut Puzzle>, mut messages: MessageReader<DeleteEdge>) {
+fn on_delete_edge(
+    mut puzzle: Single<&mut Puzzle>,
+    mut messages: MessageReader<DeleteEdge>,
+    state: Res<State<EditorMode>>,
+) {
     for msg in messages.read() {
-        puzzle.remove_solution_edge(msg.0, msg.1);
+        if state.is_play() {
+            puzzle.remove_game_edge(msg.0, msg.1);
+        } else {
+            puzzle.remove_solution_edge(msg.0, msg.1);
+        }
+    }
+}
+
+fn on_toggle_edge(
+    mut puzzle: Single<&mut Puzzle>,
+    mut messages: MessageReader<ToggleEdge>,
+    state: Res<State<EditorMode>>,
+) {
+    let is_play = state.is_play();
+    for msg in messages.read() {
+        puzzle.toggle_edge(msg.0, msg.1, is_play);
     }
 }
 

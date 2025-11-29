@@ -1,4 +1,4 @@
-use bevy::ui::RelativeCursorPosition;
+use bevy::{time::common_conditions::on_timer, ui::RelativeCursorPosition};
 
 use crate::secret_project::*;
 
@@ -12,6 +12,11 @@ impl Plugin for PuzzlePlugin {
                 update_vertex_info,
                 get_rel_cursor_info,
                 draw_vertex_cursor_info.run_if(not(in_state(EditorMode::Play))),
+                draw_solution_edges.run_if(not(in_state(EditorMode::Play))),
+                draw_game_edges.run_if(in_state(EditorMode::Play)),
+                autosave_game_progress
+                    .run_if(in_state(EditorMode::Play))
+                    .run_if(on_timer(std::time::Duration::from_secs(1))),
             ),
         );
         app.insert_resource(CursorVertexInfo::default());
@@ -62,11 +67,7 @@ fn update_vertex_info(
 
     if buttons.just_released(MouseButton::Left) {
         if let Some((a, b)) = vinfo.pair() {
-            if puzzle.solution_edges.is_edge(a, b) {
-                commands.write_message(DeleteEdge(a, b));
-            } else {
-                commands.write_message(AddEdge(a, b));
-            }
+            commands.write_message(ToggleEdge(a, b));
         }
         vinfo.clicked = None;
     }
@@ -120,6 +121,14 @@ pub fn draw_solution_edges(
 
 fn draw_game_edges(mut painter: ShapePainter, puzzle: Single<&Puzzle>) {
     for (a, b) in puzzle.game_edges() {
-        draw_line(&mut painter, a.pos, b.pos, GAME_EDGES_Z, 3.0, GRAY);
+        draw_line(&mut painter, a.pos, b.pos, GAME_EDGES_Z, 5.0, GRAY);
+    }
+}
+
+fn autosave_game_progress(puzzle: Single<Ref<Puzzle>>) {
+    if puzzle.is_changed() {
+        info!("Puzzle has been changed since last autosave.");
+    } else {
+        info!("No change.");
     }
 }
