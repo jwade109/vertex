@@ -121,13 +121,16 @@ pub fn draw_solution_edges(
 
 fn draw_game_edges(mut painter: ShapePainter, puzzle: Single<&Puzzle>) {
     for (a, b) in puzzle.game_edges() {
-        draw_line(&mut painter, a.pos, b.pos, GAME_EDGES_Z, 5.0, GRAY);
+        draw_line(&mut painter, a.pos, b.pos, GAME_EDGES_Z, 3.0, BLACK);
     }
 }
 
 fn autosave_game_progress(puzzle: Single<Ref<Puzzle>>) {
     if puzzle.is_changed() {
-        info!("Puzzle has been changed since last autosave.");
+        info!("Puzzle has been changed since last autosave");
+        if let Err(e) = save_progress(&puzzle, Path::new("./save_progress.yaml")) {
+            error!("Failed to save: {:?}", e);
+        }
     } else {
         info!("No change.");
     }

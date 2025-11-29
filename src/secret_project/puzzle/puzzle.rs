@@ -503,6 +503,30 @@ pub fn point_in_triangle(test: Vec2, a: Vec2, b: Vec2, c: Vec2) -> bool {
     alpha > 0.0 && beta > 0.0 && gamma > 0.0
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+struct SaveProgress {
+    puzzle_title: String,
+    edges: Vec<(usize, usize)>,
+}
+
+pub fn save_progress(puzzle: &Puzzle, filename: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    let mut prog = SaveProgress {
+        puzzle_title: puzzle.title().to_string(),
+        edges: Vec::new(),
+    };
+
+    for edge in &puzzle.game_edges.0 {
+        prog.edges.push(*edge)
+    }
+
+    prog.edges.sort();
+
+    let s = serde_yaml::to_string(&prog)?;
+    std::fs::write(filename, s)?;
+
+    Ok(())
+}
+
 pub fn draw_puzzle(
     mut painter: ShapePainter,
     puzzle: Single<&Puzzle>,
@@ -675,7 +699,7 @@ pub fn update_puzzle_mesh(
         if !puzzle.is_changed() && !state.is_changed() {
             continue;
         }
-        info!("Mesh update (changed by {})", puzzle.changed_by());
+        info!("Mesh update");
         if let Some(mesh) = generate_mesh(&puzzle, is_play) {
             if let Some(m) = &mut mesh_comp {
                 **m = Mesh2d(meshes.add(mesh));
