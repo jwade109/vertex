@@ -14,7 +14,7 @@ impl Settings {
             ref_image_alpha: 0.4,
             triangle_alpha: 1.0,
             blend_scale: 0.5,
-            n_colors: 8,
+            n_colors: 16,
         }
     }
 }

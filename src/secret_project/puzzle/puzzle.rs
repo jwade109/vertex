@@ -359,7 +359,7 @@ impl Puzzle {
     }
 
     pub fn remove_vertex(&mut self, id: usize) {
-        debug!("Removing vertex {}", id);
+        info!("Removing vertex {}", id);
         self.vertices.remove_entry(&id);
         self.solution_edges.remove_vertex(id);
         self.game_edges.remove_vertex(id);
@@ -424,7 +424,7 @@ pub struct ReferenceImage {
 }
 
 #[derive(Deserialize, Serialize, Default)]
-pub struct PuzzleRepr {
+pub struct PuzzleFileStorage {
     title: String,
     vertices: HashMap<usize, Vec2>,
     edges: Vec<(usize, usize)>,
@@ -432,7 +432,7 @@ pub struct PuzzleRepr {
     reference_images: Vec<ReferenceImage>,
 }
 
-pub fn repr_to_puzzle(value: PuzzleRepr) -> (Puzzle, Vec<ReferenceImage>) {
+pub fn repr_to_puzzle(value: PuzzleFileStorage) -> (Puzzle, Vec<ReferenceImage>) {
     let mut puzzle = Puzzle::empty(value.title);
     let mut max_id = 0;
     puzzle.vertices = value
@@ -457,8 +457,8 @@ pub fn repr_to_puzzle(value: PuzzleRepr) -> (Puzzle, Vec<ReferenceImage>) {
     (puzzle, value.reference_images)
 }
 
-fn puzzle_to_repr(value: &Puzzle, images: Vec<ReferenceImage>) -> PuzzleRepr {
-    let mut repr = PuzzleRepr::default();
+fn puzzle_to_repr(value: &Puzzle, images: Vec<ReferenceImage>) -> PuzzleFileStorage {
+    let mut repr = PuzzleFileStorage::default();
     repr.title = value.title().to_string();
     for (id, p) in &value.vertices {
         repr.vertices.insert(*id, p.pos);
@@ -491,7 +491,7 @@ pub fn puzzle_from_file(
 ) -> Result<(Puzzle, Vec<ReferenceImage>), Box<dyn std::error::Error>> {
     let filepath = filepath.into();
     let s = std::fs::read_to_string(filepath)?;
-    let repr: PuzzleRepr = serde_yaml::from_str(&s)?;
+    let repr: PuzzleFileStorage = serde_yaml::from_str(&s)?;
     Ok(repr_to_puzzle(repr))
 }
 
@@ -597,11 +597,30 @@ pub fn draw_cursor_line(
     }
 }
 
+#[derive(Debug)]
+pub struct PuzzleInfo {
+    pub name: String,
+    pub path: PathBuf,
+}
+
+#[derive(Resource, Debug, Default, Deref, DerefMut)]
+pub struct PuzzleList(HashMap<usize, PuzzleInfo>);
+
+impl PuzzleList {
+    pub fn sorted_list<'a>(&'a self) -> Vec<(usize, &'a PuzzleInfo)> {
+        let mut list: Vec<(usize, &PuzzleInfo)> =
+            self.0.iter().map(|(id, info)| (*id, info)).collect();
+        list.sort_by_key(|e| e.0);
+        list
+    }
+}
+
 pub fn on_open_puzzle(
     mut commands: Commands,
+    list: Res<PuzzleList>,
     all_windows: Query<Entity, With<RefImageWindow>>,
     mut puzzle: Single<&mut Puzzle>,
-    mut msg: MessageReader<OpenPuzzle>,
+    mut msg: MessageReader<OpenPuzzleById>,
     mut open: ResMut<CurrentPuzzle>,
     mut title: Single<&mut HiddenText, With<UiTitle>>,
     mut number: Single<&mut Text, With<UiNumberLabel>>,
@@ -610,20 +629,24 @@ pub fn on_open_puzzle(
         for e in all_windows {
             commands.entity(e).despawn();
         }
+        let id = msg.0;
 
-        let new_number = msg.0;
-        let path = &msg.1;
-        match puzzle_from_file(&path) {
+        let info = match list.get(&id) {
+            Some(info) => info,
+            _ => continue,
+        };
+
+        match puzzle_from_file(&info.path) {
             Ok((p, images)) => {
                 **puzzle = p;
 
-                number.0 = format!("#{}", new_number + 1);
+                number.0 = format!("#{}", id);
 
                 title.reset(puzzle.title());
 
-                commands.write_message(TextMessage::new(format!(
+                commands.write_message(TextMessage::debug(format!(
                     "Opened puzzle at \"{}\"",
-                    path.display()
+                    info.path.display()
                 )));
 
                 for img in images {
@@ -631,52 +654,14 @@ pub fn on_open_puzzle(
                     commands.write_message(OpenImage(img));
                 }
 
-                open.0 = Some(path.clone());
+                open.0 = Some(id);
 
                 commands.write_message(SoundEffect::UiThreePop);
             }
             Err(e) => {
                 let s = format!("{:?}", e);
-                commands.write_message(TextMessage::new(s));
+                commands.write_message(TextMessage::info(s));
             }
-        }
-    }
-}
-
-pub fn on_load_puzzle(
-    mut commands: Commands,
-    mut puzzle: Single<&mut Puzzle>,
-    mut msg: MessageReader<FileMessage>,
-    mut open: ResMut<CurrentPuzzle>,
-) {
-    for msg in msg.read() {
-        let (filetype, path) = if let FileMessage::Opened(filetype, path) = msg {
-            (filetype, path)
-        } else {
-            continue;
-        };
-
-        match filetype {
-            FileType::Any => (),
-            FileType::Puzzle => (),
-            FileType::ReferenceImage => continue,
-        }
-
-        if let Ok((p, images)) = puzzle_from_file(&path) {
-            **puzzle = p;
-
-            commands.write_message(TextMessage::new(format!(
-                "Opened puzzle at \"{}\"",
-                path.display()
-            )));
-
-            for img in images {
-                println!("Reference image: {:?}", img);
-            }
-
-            open.0 = Some(path.clone());
-
-            commands.write_message(SoundEffect::UiThreePop);
         }
     }
 }

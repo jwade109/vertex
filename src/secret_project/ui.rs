@@ -29,7 +29,7 @@ fn button_interactions(
 ) {
     for (e, interaction, msg) in buttons {
         let s = format!("{}: {:?} {:?}", e, interaction, msg);
-        commands.write_message(TextMessage::new(s));
+        commands.write_message(TextMessage::debug(s));
 
         match interaction {
             Interaction::Pressed => {
@@ -150,11 +150,22 @@ fn handle_ui_messages(
     mut messages: MessageReader<UiMessage>,
     mut puzzle: Single<&mut Puzzle>,
     mut solver: ResMut<Autosolver>,
+    current: Res<CurrentPuzzle>,
 ) {
     for msg in messages.read() {
         match msg {
-            UiMessage::Previous => (),
-            UiMessage::Next => (),
+            UiMessage::Previous => {
+                if let Some(id) = current.0 {
+                    if id > 0 {
+                        commands.write_message(OpenPuzzleById(id - 1));
+                    }
+                }
+            }
+            UiMessage::Next => {
+                if let Some(id) = current.0 {
+                    commands.write_message(OpenPuzzleById(id + 1));
+                }
+            }
             UiMessage::Save => (),
             UiMessage::Load => (),
             UiMessage::Reset => {
@@ -165,7 +176,7 @@ fn handle_ui_messages(
             }
             UiMessage::Autosolver => {
                 solver.toggle();
-                commands.write_message(TextMessage::new("Toggled Autosolver"));
+                commands.write_message(TextMessage::debug("Toggled Autosolver"));
             }
         }
     }

@@ -64,7 +64,7 @@ fn do_autosolver(
     }
 
     if edges.is_empty() {
-        commands.write_message(TextMessage::new("Done!"));
+        commands.write_message(TextMessage::debug("Done!"));
         solver.enabled = false;
     }
 

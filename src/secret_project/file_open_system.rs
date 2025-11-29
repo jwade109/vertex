@@ -9,7 +9,7 @@ pub struct FilePlugin;
 impl Plugin for FilePlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<FileMessage>();
-        app.add_message::<OpenPuzzle>();
+        app.add_message::<OpenPuzzleById>();
         app.add_systems(Update, (open_dialogue, poll_tasks));
     }
 }
@@ -44,7 +44,7 @@ struct SelectedFile {
 }
 
 #[derive(Message, Debug)]
-pub struct OpenPuzzle(pub usize, pub PathBuf);
+pub struct OpenPuzzleById(pub usize);
 
 fn open_dialogue(mut commands: Commands, mut msg: MessageReader<FileMessage>) {
     for msg in msg.read() {

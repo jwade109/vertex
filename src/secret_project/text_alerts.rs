@@ -10,7 +10,10 @@ impl Plugin for TextAlertPlugin {
 }
 
 #[derive(Message, Debug, Clone)]
-pub struct TextMessage(String);
+pub struct TextMessage {
+    message: String,
+    debug: bool,
+}
 
 #[derive(Component, Debug, Clone)]
 pub struct TextAlert {
@@ -18,8 +21,18 @@ pub struct TextAlert {
 }
 
 impl TextMessage {
-    pub fn new(s: impl Into<String>) -> Self {
-        Self(s.into())
+    pub fn info(s: impl Into<String>) -> Self {
+        Self {
+            message: s.into(),
+            debug: false,
+        }
+    }
+
+    pub fn debug(s: impl Into<String>) -> Self {
+        Self {
+            message: s.into(),
+            debug: true,
+        }
     }
 }
 
@@ -27,12 +40,17 @@ fn process_messages(
     mut commands: Commands,
     mut msg: MessageReader<TextMessage>,
     asset_server: Res<AssetServer>,
+    state: Res<State<EditorMode>>,
 ) {
     let font = asset_server.load("EBGaramond-Medium.ttf");
     for msg in msg.read() {
-        info!("{}", &msg.0);
+        info!("{}", msg.message);
 
-        let t = Text::new(msg.0.clone());
+        if state.is_play() && msg.debug {
+            continue;
+        }
+
+        let t = Text::new(msg.message.clone());
         let f = TextFont::from_font_size(55.0).with_font(font.clone());
         let c = TextColor::BLACK;
         let s = TextShadow {

@@ -20,46 +20,58 @@ impl Plugin for EguiEditor {
 }
 
 #[derive(Message)]
-pub struct SavePuzzle {
-    filepath: PathBuf,
-}
+pub struct SavePuzzle;
 
 #[derive(Resource)]
-pub struct CurrentPuzzle(pub Option<PathBuf>);
+pub struct CurrentPuzzle(pub Option<usize>);
 
 fn save_puzzle_system(
     mut commands: Commands,
     puzzle: Single<&Puzzle>,
     windows: Query<(&RefImagePath, &RefImageWindow)>,
-    mut save: MessageReader<SavePuzzle>,
+    save: MessageReader<SavePuzzle>,
+    current: Res<CurrentPuzzle>,
+    puzzle_list: Res<PuzzleList>,
 ) {
-    for evt in save.read() {
-        let mut images = vec![];
+    if save.is_empty() {
+        return;
+    }
 
-        for (path, window) in windows {
-            println!("{}, {}", path.0.display(), window.pos);
-            let img = ReferenceImage {
-                path: path.0.clone(),
-                pos: window.pos,
-            };
-            images.push(img);
+    let mut images = vec![];
+
+    let id = match current.0 {
+        Some(id) => id,
+        _ => return,
+    };
+
+    let info = match puzzle_list.get(&id) {
+        Some(info) => info,
+        _ => return,
+    };
+
+    info!("Saving puzzle: {:?}", info);
+
+    for (path, window) in windows {
+        let img = ReferenceImage {
+            path: path.0.clone(),
+            pos: window.pos,
+        };
+        images.push(img);
+    }
+
+    match puzzle_to_file(&puzzle, &info.path, images) {
+        Ok(()) => {
+            commands.write_message(TextMessage::info(format!(
+                "Saved puzzle to \"{}\"",
+                info.path.display()
+            )));
         }
-
-        println!("Saving puzzle to {}", evt.filepath.display());
-        match puzzle_to_file(&puzzle, &evt.filepath, images) {
-            Ok(()) => {
-                commands.write_message(TextMessage::new(format!(
-                    "Saved puzzle to \"{}\"",
-                    evt.filepath.display()
-                )));
-            }
-            Err(e) => {
-                commands.write_message(TextMessage::new(format!(
-                    "Failed to save puzzle to \"{}\": {}",
-                    evt.filepath.display(),
-                    e
-                )));
-            }
+        Err(e) => {
+            commands.write_message(TextMessage::info(format!(
+                "Failed to save puzzle to \"{}\": {}",
+                info.path.display(),
+                e
+            )));
         }
     }
 }
@@ -69,11 +81,9 @@ fn editor_ui_system(
     mut commands: Commands,
     mut app: ResMut<Settings>,
     mut puzzle: Single<&mut Puzzle>,
-    mut camera: Single<&mut Transform, (With<Camera>, Without<Sprite>)>,
     sprites: Query<(Entity, &Sprite, &Transform)>,
     images: Res<Assets<Image>>,
     keys: Res<ButtonInput<KeyCode>>,
-    open_file: Res<CurrentPuzzle>,
     sel: Res<SelectedVertices>,
     puzzle_list: Res<PuzzleList>,
     mut mouse: ResMut<CursorState>,
@@ -81,8 +91,7 @@ fn editor_ui_system(
     mouse.on_egui = false;
 
     if keys.pressed(KeyCode::ControlLeft) && keys.just_pressed(KeyCode::KeyS) {
-        let filepath = open_file.0.clone().unwrap_or("puzzle.txt".into());
-        commands.write_message(SavePuzzle { filepath });
+        commands.write_message(SavePuzzle);
     }
 
     if keys.pressed(KeyCode::ControlLeft) && keys.just_pressed(KeyCode::KeyO) {
@@ -104,34 +113,25 @@ fn editor_ui_system(
                 x.1.size *= 1.5;
             }
 
-            ui.collapsing("Camera", |ui| {
-                let mut scale = camera.scale.x;
-
-                ui.add(egui::Slider::new(
-                    &mut camera.translation.x,
-                    -50000.0..=50000.0,
-                ));
-                ui.add(egui::Slider::new(
-                    &mut camera.translation.y,
-                    -50000.0..=50000.0,
-                ));
-                ui.add(egui::Slider::new(
-                    &mut camera.translation.z,
-                    -5000.0..=5000.0,
-                ));
-                ui.add(egui::Slider::new(&mut scale, 0.01..=10.0));
-
-                camera.scale.x = scale;
-                camera.scale.y = scale;
-            });
-
             ui.collapsing("Puzzles", |ui| {
-                for (i, (name, path)) in puzzle_list.iter().enumerate() {
-                    if ui.button(name).clicked() {
-                        info!("Opening a puzzle: {}", path.display());
-                        commands.write_message(OpenPuzzle(i, path.clone()));
+                for (id, info) in puzzle_list.sorted_list() {
+                    if ui.button(&info.name).clicked() {
+                        info!("Opening a puzzle: {:?}", info);
+                        commands.write_message(OpenPuzzleById(id));
                     }
                 }
+            });
+
+            ui.collapsing("Color Sampling", |ui| {
+                if ui.button("Sample Colors").clicked() {
+                    sample_colors(&mut puzzle, &sprites, &images, app.blend_scale);
+                }
+                ui.add(egui::Slider::new(&mut app.blend_scale, 0.1..=0.9));
+
+                if ui.button("Quantize").clicked() {
+                    puzzle.quantize_colors(app.n_colors);
+                }
+                ui.add(egui::Slider::new(&mut app.n_colors, 3..=500));
             });
 
             ui.collapsing("Editor", |ui| {
@@ -175,33 +175,6 @@ fn editor_ui_system(
                     puzzle.clear_triangles();
                 }
 
-                if ui.button("Clear").clicked() {
-                    **puzzle = Puzzle::empty("Empty");
-                    for (e, ..) in &sprites {
-                        commands.entity(e).despawn();
-                    }
-                }
-
-                if ui.button("Save to File").clicked() {
-                    commands.write_message(SavePuzzle {
-                        filepath: "puzzle.txt".into(),
-                    });
-                }
-
-                ui.separator();
-
-                ui.label("Color Sampling");
-
-                if ui.button("Sample Colors").clicked() {
-                    sample_colors(&mut puzzle, &sprites, &images, app.blend_scale);
-                }
-                ui.add(egui::Slider::new(&mut app.blend_scale, 0.1..=0.9));
-
-                if ui.button("Quantize").clicked() {
-                    puzzle.quantize_colors(app.n_colors);
-                }
-                ui.add(egui::Slider::new(&mut app.n_colors, 3..=500));
-
                 ui.separator();
 
                 ui.label("Layer Opacity");
@@ -212,7 +185,7 @@ fn editor_ui_system(
 
             ui.collapsing("Alerts", |ui| {
                 if ui.button("Send Text Alert").clicked() {
-                    commands.write_message(TextMessage::new("This is a text alert!"));
+                    commands.write_message(TextMessage::info("This is a text alert!"));
                 }
             });
 

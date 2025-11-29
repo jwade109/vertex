@@ -4,12 +4,10 @@ use secret_project::*;
 
 fn main() {
     App::new()
-        .add_plugins(
-            DefaultPlugins.set(AssetPlugin {
-                unapproved_path_mode: UnapprovedPathMode::Allow,
-                ..default()
-            }), // .set(ImagePlugin::default_nearest()),
-        )
+        .add_plugins(DefaultPlugins.set(AssetPlugin {
+            unapproved_path_mode: UnapprovedPathMode::Allow,
+            ..default()
+        }))
         .add_plugins(FpsOverlayPlugin::default())
         .add_plugins(Shape2dPlugin::default())
         .add_plugins(bevy_framepace::FramepacePlugin)
@@ -34,7 +32,6 @@ fn main() {
                 on_input_tick,
                 draw_cursor_line,
                 text_system,
-                on_load_puzzle,
                 on_open_puzzle,
                 update_puzzle_mesh,
                 enable_debug_view.run_if(state_changed::<EditorMode>),
@@ -56,22 +53,23 @@ fn startup(mut commands: Commands, mut _windows: Query<&mut Window, With<Primary
     let paths = std::fs::read_dir("./puzzles/").unwrap();
     let mut puzzles = PuzzleList::default();
 
-    for path in paths {
+    for (id, path) in paths.enumerate() {
         if let Ok(path) = path {
             let path = path.path();
             let puzzle_file = path.join("puzzle.txt");
             println!("Name: {}", puzzle_file.display());
             if let Ok((puzzle, _)) = puzzle_from_file(puzzle_file.clone()) {
-                puzzles.push((puzzle.title().to_string(), puzzle_file));
+                let info = PuzzleInfo {
+                    name: puzzle.title().to_string(),
+                    path: puzzle_file,
+                };
+                puzzles.insert(id, info);
             }
         }
     }
 
     commands.insert_resource(puzzles);
 }
-
-#[derive(Resource, Debug, Default, Deref, DerefMut)]
-pub struct PuzzleList(Vec<(String, std::path::PathBuf)>);
 
 fn enable_debug_view(state: Res<State<EditorMode>>, mut fps: ResMut<FpsOverlayConfig>) {
     fps.enabled = !state.is_play();

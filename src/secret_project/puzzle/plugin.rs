@@ -17,7 +17,7 @@ impl Plugin for PuzzlePlugin {
                 draw_game_edges.run_if(in_state(EditorMode::Play)),
                 autosave_game_progress
                     .run_if(in_state(EditorMode::Play))
-                    .run_if(on_timer(std::time::Duration::from_secs(1))),
+                    .run_if(on_timer(std::time::Duration::from_secs(10))),
             ),
         );
         app.insert_resource(CursorVertexInfo::default());
@@ -129,13 +129,13 @@ fn draw_game_edges(mut painter: ShapePainter, puzzle: Single<&Puzzle>) {
     }
 }
 
-fn autosave_game_progress(puzzle: Single<Ref<Puzzle>>) {
+fn autosave_game_progress(mut text: MessageWriter<TextMessage>, puzzle: Single<Ref<Puzzle>>) {
     if puzzle.is_changed() {
         info!("Puzzle has been changed since last autosave");
+        text.write(TextMessage::info("Autosaved progress!"));
         if let Err(e) = save_progress(&puzzle, Path::new("./save_progress.yaml")) {
             error!("Failed to save: {:?}", e);
+            text.write(TextMessage::info("Failed to autosave :("));
         }
-    } else {
-        info!("No change.");
     }
 }
