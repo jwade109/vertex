@@ -104,3 +104,22 @@ fn draw_vertex_cursor_info(
         painter.circle(9.0 * camera.scale.x);
     }
 }
+
+pub fn draw_solution_edges(
+    mut painter: ShapePainter,
+    puzzle: Single<&Puzzle>,
+    keys: Res<ButtonInput<KeyCode>>,
+) {
+    if keys.pressed(KeyCode::KeyV) {
+        return;
+    }
+    for (_, a, _, b) in puzzle.solution_edges() {
+        draw_line(&mut painter, a.pos, b.pos, SOLUTION_EDGES_Z, 1.0, BLACK);
+    }
+}
+
+fn draw_game_edges(mut painter: ShapePainter, puzzle: Single<&Puzzle>) {
+    for (a, b) in puzzle.game_edges() {
+        draw_line(&mut painter, a.pos, b.pos, GAME_EDGES_Z, 3.0, GRAY);
+    }
+}

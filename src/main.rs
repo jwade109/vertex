@@ -33,8 +33,6 @@ fn main() {
                 on_input_tick,
                 draw_puzzle,
                 draw_cursor_line,
-                draw_solution_edges.run_if(not(in_state(EditorMode::Play))),
-                draw_game_edges.run_if(in_state(EditorMode::Play)),
                 text_system,
                 on_load_puzzle,
                 on_open_puzzle,

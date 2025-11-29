@@ -472,25 +472,6 @@ pub fn point_in_triangle(test: Vec2, a: Vec2, b: Vec2, c: Vec2) -> bool {
     alpha > 0.0 && beta > 0.0 && gamma > 0.0
 }
 
-pub fn draw_solution_edges(
-    mut painter: ShapePainter,
-    puzzle: Single<&Puzzle>,
-    keys: Res<ButtonInput<KeyCode>>,
-) {
-    if keys.pressed(KeyCode::KeyV) {
-        return;
-    }
-    for (_, a, _, b) in puzzle.solution_edges() {
-        draw_line(&mut painter, a.pos, b.pos, SOLUTION_EDGES_Z, 1.0, BLACK);
-    }
-}
-
-pub fn draw_game_edges(mut painter: ShapePainter, puzzle: Single<&Puzzle>) {
-    for (a, b) in puzzle.game_edges() {
-        draw_line(&mut painter, a.pos, b.pos, GAME_EDGES_Z, 3.0, GRAY);
-    }
-}
-
 pub fn draw_puzzle(
     mut painter: ShapePainter,
     puzzle: Single<&Puzzle>,
@@ -507,10 +488,6 @@ pub fn draw_puzzle(
     }
 
     for (_, v) in puzzle.vertices() {
-        // if v.marker_radius.actual < 1.0 {
-        //     continue;
-        // }
-
         let radius = 4.0;
 
         if is_play {
@@ -596,7 +573,7 @@ pub fn on_open_puzzle(
 
                 open.0 = Some(path.clone());
 
-                commands.write_message(SoundEffect::UiPopUp);
+                commands.write_message(SoundEffect::UiThreePop);
             }
             Err(e) => {
                 let s = format!("{:?}", e);
@@ -639,7 +616,7 @@ pub fn on_load_puzzle(
 
             open.0 = Some(path.clone());
 
-            commands.write_message(SoundEffect::UiPopUp);
+            commands.write_message(SoundEffect::UiThreePop);
         }
     }
 }
