@@ -15,6 +15,12 @@ pub fn random(a: f32, b: f32) -> f32 {
     rand::rng().random_range(a..=b)
 }
 
+pub fn randvec(min: f32, max: f32) -> Vec2 {
+    let a = random(0.0, 2.0) * std::f32::consts::PI;
+    let r = random(min, max);
+    Vec2::from_angle(a) * r
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct Lpf {
     pub target: f32,

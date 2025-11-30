@@ -1,5 +1,6 @@
 mod autosolver;
 mod camera;
+mod confetti;
 mod constants;
 mod cursor;
 mod drawing;
@@ -21,6 +22,7 @@ mod ui;
 
 pub use autosolver::*;
 pub use camera::*;
+pub use confetti::*;
 pub use constants::*;
 pub use cursor::*;
 pub use drawing::*;

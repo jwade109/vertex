@@ -7,7 +7,7 @@ impl Plugin for AutoSolverPlugin {
         app.add_systems(Startup, setup);
         app.add_systems(
             FixedUpdate,
-            do_autosolver.run_if(in_state(AppState::Playing)),
+            do_autosolver.run_if(is_playing),
         );
     }
 }

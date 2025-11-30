@@ -19,6 +19,7 @@ pub enum SoundEffect {
     UiThreePop,
     UiTrillDown,
     UiTrill,
+    Victory,
 }
 
 impl SoundEffect {
@@ -30,6 +31,7 @@ impl SoundEffect {
             SoundEffect::UiThreePop => "sounds/ui-three-pop.mp3",
             SoundEffect::UiTrillDown => "sounds/ui-trill-down.mp3",
             SoundEffect::UiTrill => "sounds/ui-trill.mp3",
+            SoundEffect::Victory => "sounds/nyt.mp3",
         }
     }
 

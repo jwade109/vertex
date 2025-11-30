@@ -7,7 +7,7 @@ impl Plugin for CameraControllerPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             Update,
-            (on_keys.run_if(is_editor_or_playing), insert_component_data),
+            (on_keys.run_if(camera_is_moveable), insert_component_data),
         )
         .add_systems(FixedUpdate, camera_physics);
     }
@@ -37,6 +37,7 @@ fn camera_physics(
         let sx = tf.scale.x;
         tf.translation += ctrl.linear_vel.extend(0.0) * dt * sx;
         tf.scale.x *= 1.0 + ctrl.zoom_vel * dt;
+        tf.scale.x = tf.scale.x.clamp(0.01, 4.0);
 
         tf.scale.y = tf.scale.x;
 
@@ -93,7 +94,7 @@ fn on_keys(
             let zoom_speed = match event.unit {
                 // desktop mice?
                 MouseScrollUnit::Line => {
-                    info!(
+                    debug!(
                         "Scroll (line units): vertical: {}, horizontal: {}",
                         event.y, event.x
                     );
@@ -101,7 +102,7 @@ fn on_keys(
                 }
                 // trackpad?
                 MouseScrollUnit::Pixel => {
-                    info!(
+                    debug!(
                         "Scroll (pixel units): vertical: {}, horizontal: {}",
                         event.y, event.x
                     );

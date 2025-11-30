@@ -25,6 +25,7 @@ fn main() {
         .add_plugins(UiPlugin)
         .add_plugins(PuzzlePlugin)
         .add_plugins(AutoSolverPlugin)
+        .add_plugins(ConfettiPlugin)
         .add_systems(Startup, startup)
         .add_systems(
             Update,
@@ -40,6 +41,7 @@ fn main() {
         )
         .insert_state(AppState::default())
         .add_computed_state::<InEditorOrPlaying>()
+        .add_computed_state::<VictoryScreen>()
         // `InputFocus` must be set for accessibility to recognize the button.
         .init_resource::<InputFocus>()
         .run();

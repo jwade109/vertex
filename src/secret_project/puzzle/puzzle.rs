@@ -510,7 +510,7 @@ pub fn draw_vertices(
 
     let is_play = !state.is_editor();
 
-    if keys.pressed(KeyCode::KeyV) {
+    if state.is_editor() && keys.pressed(KeyCode::KeyV) {
         return;
     }
 
@@ -689,7 +689,7 @@ pub fn update_puzzle_mesh(
     let is_play = match **state {
         AppState::Loading => return,
         AppState::Menu => true,
-        AppState::Playing => true,
+        AppState::Playing { .. } => true,
         AppState::Editing { .. } => false,
     };
 
