@@ -21,7 +21,7 @@ fn main() {
         .add_plugins(CursorPlugin)
         .add_plugins(ParticlePlugin)
         .add_plugins(PuzzleMessagePlugin)
-        .add_plugins(HiddenTextPlugin)
+        .add_plugins(RevealedTextPlugin)
         .add_plugins(UiPlugin)
         .add_plugins(PuzzlePlugin)
         .add_plugins(AutoSolverPlugin)

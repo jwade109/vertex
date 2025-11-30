@@ -44,6 +44,9 @@ impl AppState {
     }
 }
 
+#[derive(States, Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum VictoryScreen {}
+
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct InEditorOrPlaying;
 

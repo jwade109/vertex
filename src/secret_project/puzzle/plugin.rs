@@ -12,14 +12,17 @@ impl Plugin for PuzzlePlugin {
                 update_cursor_vertex_info,
                 get_rel_cursor_info,
                 draw_vertices,
+                on_puzzle_complete,
+                update_title.run_if(in_state(AppState::Playing)),
                 draw_vertex_cursor_info.run_if(is_editor_or_playing),
                 draw_solution_edges.run_if(is_editor),
                 draw_game_edges.run_if(is_menu_or_playing),
                 autosave_game_progress
                     .run_if(in_state(AppState::Playing))
-                    .run_if(on_timer(std::time::Duration::from_secs(10))),
+                    .run_if(on_timer(std::time::Duration::from_secs(1))),
             ),
         );
+        app.add_systems(FixedUpdate, update_confetti);
         app.insert_resource(CursorVertexInfo::default());
     }
 }
@@ -129,13 +132,105 @@ fn draw_game_edges(mut painter: ShapePainter, puzzle: Single<&Puzzle>) {
     }
 }
 
-fn autosave_game_progress(mut text: MessageWriter<TextMessage>, puzzle: Single<Ref<Puzzle>>) {
+fn autosave_game_progress(
+    mut text: MessageWriter<TextMessage>,
+    puzzle: Single<Ref<Puzzle>>,
+    current: Res<CurrentPuzzle>,
+    index: Res<PuzzleIndex>,
+) {
     if puzzle.is_changed() {
+        let id = match current.0 {
+            Some(id) => id,
+            _ => return,
+        };
+
+        let info = match index.get(&id) {
+            Some(info) => info,
+            _ => return,
+        };
+
+        let path = info.autosave_path();
+
         info!("Puzzle has been changed since last autosave");
-        text.write(TextMessage::info("Autosaved progress!"));
-        if let Err(e) = save_progress(&puzzle, Path::new("./save_progress.yaml")) {
+        text.write(TextMessage::debug("Autosaved progress!"));
+        if let Err(e) = save_progress(&puzzle, &path) {
             error!("Failed to save: {:?}", e);
             text.write(TextMessage::info("Failed to autosave :("));
+        } else {
+            info!("Autosaved to {}", path.display());
+        }
+    }
+}
+
+#[derive(Component, Debug, Clone, Copy)]
+struct ConfettiVelocity {
+    linear: Vec2,
+    angular: f32,
+}
+
+impl ConfettiVelocity {
+    fn random() -> Self {
+        Self {
+            linear: Vec2::new(random(-160.0, 160.0), random(-160.0, 160.0)),
+            angular: random(-14.0, 14.0),
+        }
+    }
+}
+
+fn on_puzzle_complete(
+    mut commands: Commands,
+    keys: Res<ButtonInput<KeyCode>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    camera: Single<&Transform, With<Camera>>,
+) {
+    if !keys.just_pressed(KeyCode::KeyP) {
+        return;
+    }
+
+    commands.write_message(SoundEffect::UiThreePop);
+
+    for _ in 0..30 {
+        let spread = 15.0;
+        let p = camera.translation.with_z(0.0)
+            + Vec3::new(
+                random(-spread, spread),
+                random(-spread, spread),
+                random(-spread, spread),
+            );
+        let a = random(0.0, 2.0 * std::f32::consts::PI);
+        let l = random(4.0, 20.0);
+        let w = random(4.0, 20.0);
+        let mesh = Mesh2d(meshes.add(Rectangle::from_size(Vec2::new(l, w))));
+        let color = LinearRgba {
+            red: rand(),
+            green: rand(),
+            blue: rand(),
+            alpha: 1.0,
+        };
+        let mat = MeshMaterial2d(materials.add(ColorMaterial::from_color(color)));
+        let tf = Transform::from_translation(p).with_rotation(Quat::from_axis_angle(Vec3::Z, a));
+        commands.spawn((tf, mesh, mat, ConfettiVelocity::random()));
+    }
+}
+
+fn update_confetti(
+    mut commands: Commands,
+    confettis: Query<(Entity, &mut ConfettiVelocity, &mut Transform)>,
+    time: Res<Time<Fixed>>,
+) {
+    let dt = time.delta_secs();
+    for (e, mut vel, mut tf) in confettis {
+        tf.translation += vel.linear.extend(0.0) * dt;
+        tf.rotate_axis(Dir3::Z, vel.angular * dt);
+
+        vel.linear.y -= 90.0 * dt;
+        vel.angular *= 0.98;
+
+        tf.scale *= 0.99;
+
+        if tf.scale.x < 0.1 {
+            commands.entity(e).despawn();
         }
     }
 }

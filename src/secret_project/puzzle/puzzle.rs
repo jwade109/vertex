@@ -377,6 +377,15 @@ impl Puzzle {
     pub fn is_complete(&self) -> bool {
         self.solution_edges.0 == self.game_edges.0
     }
+
+    pub fn progress(&self) -> f32 {
+        let n_sol = self.triangles(false).count();
+        let n_game = self.triangles(true).count();
+        if n_sol == 0 {
+            return 0.0;
+        }
+        n_game as f32 / n_sol as f32
+    }
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -565,6 +574,17 @@ pub struct PuzzleInfo {
     pub path: PathBuf,
 }
 
+impl PuzzleInfo {
+    pub fn autosave_path(&self) -> PathBuf {
+        let parent = self
+            .path
+            .parent()
+            .map(|p| p.to_path_buf())
+            .unwrap_or(PathBuf::from("/tmp/"));
+        parent.join("autosave.yaml")
+    }
+}
+
 #[derive(Resource, Debug, Default, Deref, DerefMut)]
 pub struct PuzzleIndex(HashMap<usize, PuzzleInfo>);
 
@@ -584,7 +604,7 @@ pub fn open_puzzle_by_id(
     mut puzzle: Single<&mut Puzzle>,
     mut msg: MessageReader<OpenPuzzleById>,
     mut open: ResMut<CurrentPuzzle>,
-    mut title: Single<&mut HiddenText, With<UiTitle>>,
+    mut title: Single<&mut RevealedText, With<UiTitle>>,
     mut number: Query<&mut Text, With<UiNumberLabel>>,
 ) {
     for msg in msg.read() {
@@ -593,40 +613,58 @@ pub fn open_puzzle_by_id(
         }
         let id = msg.0;
 
-        let info: &PuzzleInfo = match list.get(&id) {
+        let info = match list.get(&id) {
             Some(info) => info,
             _ => continue,
         };
 
-        match puzzle_from_file(&info.path) {
-            Ok((p, images)) => {
-                **puzzle = p;
-
-                for mut number in &mut number {
-                    number.0 = format!("#{}", id);
-                }
-
-                title.reset(puzzle.title());
-
-                commands.write_message(TextMessage::debug(format!(
-                    "Opened puzzle at \"{}\"",
-                    info.path.display()
-                )));
-
-                for img in images {
-                    println!("Spawn: {:?}", img);
-                    commands.write_message(OpenImage(img));
-                }
-
-                open.0 = Some(id);
-
-                commands.write_message(SoundEffect::UiThreePop);
-            }
+        let (p, images) = match puzzle_from_file(&info.path) {
+            Ok((p, images)) => (p, images),
             Err(e) => {
                 let s = format!("{:?}", e);
                 commands.write_message(TextMessage::info(s));
+                continue;
+            }
+        };
+
+        let autosave_path = info.autosave_path();
+
+        let autosave = match load_autosave_progress(&autosave_path) {
+            Ok(p) => p,
+            Err(e) => {
+                error!(?e);
+                None
+            }
+        };
+
+        **puzzle = p;
+
+        if let Some(prog) = autosave {
+            // todo do something with progress
+            puzzle.game_edges.clear();
+            for (a, b) in prog.edges {
+                puzzle.game_edges.add_edge(a, b);
             }
         }
+
+        for mut number in &mut number {
+            number.0 = format!("#{}", id);
+        }
+
+        title.reset(puzzle.title());
+
+        commands.write_message(TextMessage::debug(format!(
+            "Opened puzzle at \"{}\"",
+            info.path.display()
+        )));
+
+        for img in images {
+            commands.write_message(OpenImage(img));
+        }
+
+        open.0 = Some(id);
+
+        commands.write_message(SoundEffect::UiThreePop);
     }
 }
 
@@ -674,5 +712,27 @@ pub fn update_puzzle_mesh(
             info!("Removing mesh");
             commands.entity(e).remove::<Mesh2d>();
         }
+    }
+}
+
+pub fn update_title(
+    puzzles: Query<&Puzzle, Changed<Puzzle>>,
+    mut text: Single<&mut RevealedText, With<UiTitle>>,
+) {
+    for puzzle in puzzles {
+        let progress = puzzle.progress();
+        text.set_progress(progress);
+    }
+}
+
+fn load_autosave_progress(path: &Path) -> Result<Option<SaveProgress>, Box<dyn std::error::Error>> {
+    if std::fs::exists(path).unwrap_or(false) {
+        let s = std::fs::read_to_string(path)?;
+        let repr: SaveProgress = serde_yaml::from_str(&s)?;
+        info!("Loaded autosave at {}", path.display());
+        Ok(Some(repr))
+    } else {
+        info!("No autosave data at {}", path.display());
+        Ok(None)
     }
 }

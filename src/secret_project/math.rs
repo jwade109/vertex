@@ -7,6 +7,10 @@ pub fn rand() -> f32 {
     rand::rng().random_range(0.0..=1.0)
 }
 
+pub fn randint(a: i32, b: i32) -> i32 {
+    rand::rng().random_range(a..b)
+}
+
 pub fn random(a: f32, b: f32) -> f32 {
     rand::rng().random_range(a..=b)
 }

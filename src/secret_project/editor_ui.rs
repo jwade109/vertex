@@ -24,13 +24,15 @@ fn save_puzzle_system(
     mut commands: Commands,
     puzzle: Single<&Puzzle>,
     windows: Query<(&RefImagePath, &RefImageWindow)>,
-    save: MessageReader<SavePuzzle>,
+    mut save: MessageReader<SavePuzzle>,
     current: Res<CurrentPuzzle>,
     puzzle_list: Res<PuzzleIndex>,
 ) {
     if save.is_empty() {
         return;
     }
+
+    for _ in save.read() {}
 
     let mut images = vec![];
 

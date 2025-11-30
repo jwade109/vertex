@@ -111,7 +111,7 @@ fn header_bar(font: &TextFont) -> impl Bundle {
             // ),
             (
                 UiTitle,
-                HiddenText::new(""),
+                RevealedText::new(""),
                 Text::new(String::new()),
                 font.clone().with_font_size(40.0),
                 TextColor(Srgba::BLACK.into()),
@@ -295,7 +295,6 @@ fn main_menu(commands: &mut Commands, font: &TextFont, index: &PuzzleIndex) {
                 align_items: AlignItems::Center,
                 ..default()
             },
-            BackgroundColor(Srgba::gray(0.5).into()),
         ))
         .id();
 
