@@ -64,13 +64,13 @@ fn on_delete_vertex(
 fn on_add_edge(
     mut puzzle: Single<&mut Puzzle>,
     mut messages: MessageReader<AddEdge>,
-    state: Res<State<EditorMode>>,
+    state: Res<State<AppState>>,
 ) {
     for msg in messages.read() {
-        if state.is_play() {
-            puzzle.add_game_edge(msg.0, msg.1);
-        } else {
+        if state.is_editor() {
             puzzle.add_solution_edge(msg.0, msg.1);
+        } else {
+            puzzle.add_game_edge(msg.0, msg.1);
         }
     }
 }
@@ -78,13 +78,13 @@ fn on_add_edge(
 fn on_delete_edge(
     mut puzzle: Single<&mut Puzzle>,
     mut messages: MessageReader<DeleteEdge>,
-    state: Res<State<EditorMode>>,
+    state: Res<State<AppState>>,
 ) {
     for msg in messages.read() {
-        if state.is_play() {
-            puzzle.remove_game_edge(msg.0, msg.1);
-        } else {
+        if state.is_editor() {
             puzzle.remove_solution_edge(msg.0, msg.1);
+        } else {
+            puzzle.remove_game_edge(msg.0, msg.1);
         }
     }
 }
@@ -92,9 +92,9 @@ fn on_delete_edge(
 fn on_toggle_edge(
     mut puzzle: Single<&mut Puzzle>,
     mut messages: MessageReader<ToggleEdge>,
-    state: Res<State<EditorMode>>,
+    state: Res<State<AppState>>,
 ) {
-    let is_play = state.is_play();
+    let is_play = !state.is_editor();
     for msg in messages.read() {
         puzzle.toggle_edge(msg.0, msg.1, is_play);
     }

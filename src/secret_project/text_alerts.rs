@@ -40,13 +40,13 @@ fn process_messages(
     mut commands: Commands,
     mut msg: MessageReader<TextMessage>,
     asset_server: Res<AssetServer>,
-    state: Res<State<EditorMode>>,
+    state: Res<State<AppState>>,
 ) {
     let font = asset_server.load("EBGaramond-Medium.ttf");
     for msg in msg.read() {
         info!("{}", msg.message);
 
-        if state.is_play() && msg.debug {
+        if !state.is_editor() && msg.debug {
             continue;
         }
 

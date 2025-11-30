@@ -1,4 +1,5 @@
 use crate::secret_project::*;
+use bevy::camera::visibility::NoFrustumCulling;
 use kmeans_colors::{get_kmeans, Kmeans};
 use palette::Srgb;
 use serde::{Deserialize, Serialize};
@@ -47,12 +48,6 @@ impl Puzzle {
         }
     }
 
-    pub fn new(title: impl Into<String>) -> Self {
-        let mut s = Self::empty(title);
-        s.randomize();
-        s
-    }
-
     pub fn title(&self) -> &str {
         &self.title
     }
@@ -96,11 +91,6 @@ impl Puzzle {
             if run_result.score < result.score {
                 result = run_result;
             }
-        }
-
-        for c in &result.centroids {
-            // let color = lab_to_srgba(c);
-            dbg!(&c);
         }
 
         for (i, centroid_id) in result.indices.iter().enumerate() {
@@ -252,34 +242,6 @@ impl Puzzle {
         });
 
         self.solution_edges.0 = edges;
-
-        self.update();
-    }
-
-    pub fn randomize(&mut self) {
-        self.vertices.clear();
-        self.solution_edges.clear();
-        self.game_edges.clear();
-        self.triangles.clear();
-        for _ in 0..30 {
-            let v = Vec2::new(random(-700.0, 700.0), random(-400.0, 400.0));
-            self.add_point(v);
-        }
-        self.update();
-    }
-
-    pub fn grid(&mut self) {
-        self.vertices.clear();
-        self.solution_edges.clear();
-        self.triangles.clear();
-
-        for x in (-800..=800).step_by(40) {
-            for y in (-800..=800).step_by(40) {
-                let dx = random(-20.0, 20.0);
-                let dy = random(-20.0, 20.0);
-                self.add_point(Vec2::new(x as f32 + dx, y as f32 + dy));
-            }
-        }
 
         self.update();
     }
@@ -532,12 +494,12 @@ pub fn draw_vertices(
     mut painter: ShapePainter,
     puzzle: Single<&Puzzle>,
     camera: Single<&Transform, With<Camera>>,
-    editor_mode: Res<State<EditorMode>>,
+    state: Res<State<AppState>>,
     keys: Res<ButtonInput<KeyCode>>,
 ) {
     let scale = camera.scale.x;
 
-    let is_play = *editor_mode == EditorMode::Play;
+    let is_play = !state.is_editor();
 
     if keys.pressed(KeyCode::KeyV) {
         return;
@@ -587,11 +549,11 @@ pub fn draw_cursor_line(
     mut painter: ShapePainter,
     puzzle: Single<&Puzzle>,
     vinfo: Res<CursorVertexInfo>,
-    state: Res<State<EditorMode>>,
+    state: Res<State<AppState>>,
 ) {
     if let Some(line) = vinfo.active_line {
         if let Some(start) = puzzle.vertex_n(line.0) {
-            let color = if state.is_play() { BLACK } else { RED };
+            let color = if !state.is_editor() { BLACK } else { RED };
             draw_line(&mut painter, start.pos, line.1, ACTIVE_LINE_Z, 5.0, color);
         }
     }
@@ -684,13 +646,20 @@ pub fn update_puzzle_mesh(
     mut puzzles: Query<(Entity, Ref<Puzzle>, Option<&mut Mesh2d>)>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    state: Res<State<EditorMode>>,
+    state: Res<State<AppState>>,
 ) {
-    let is_play = state.is_play();
+    let is_play = match **state {
+        AppState::Loading => return,
+        AppState::Menu => true,
+        AppState::Playing => true,
+        AppState::Editing { .. } => false,
+    };
+
     for (e, puzzle, mut mesh_comp) in &mut puzzles {
         if !puzzle.is_changed() && !state.is_changed() {
             continue;
         }
+
         info!("Mesh update");
         if let Some(mesh) = generate_mesh(&puzzle, is_play) {
             if let Some(m) = &mut mesh_comp {
@@ -698,9 +667,11 @@ pub fn update_puzzle_mesh(
             } else {
                 let m = Mesh2d(meshes.add(mesh));
                 let mat = MeshMaterial2d(materials.add(ColorMaterial::default()));
-                commands.entity(e).insert((m, mat));
+                let tf = Transform::from_xyz(0.0, 0.0, -100.0);
+                commands.entity(e).insert((m, mat, tf, NoFrustumCulling));
             }
         } else {
+            info!("Removing mesh");
             commands.entity(e).remove::<Mesh2d>();
         }
     }

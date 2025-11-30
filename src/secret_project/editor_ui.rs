@@ -10,10 +10,7 @@ impl Plugin for EguiEditor {
             .add_message::<SavePuzzle>()
             .insert_resource(CurrentPuzzle(None))
             .add_systems(Update, save_puzzle_system)
-            .add_systems(
-                EguiPrimaryContextPass,
-                editor_ui_system.run_if(not(in_state(EditorMode::Play))),
-            );
+            .add_systems(EguiPrimaryContextPass, editor_ui_system.run_if(is_editor));
     }
 }
 
@@ -85,6 +82,7 @@ fn editor_ui_system(
     sel: Res<SelectedVertices>,
     puzzle_list: Res<PuzzleIndex>,
     mut mouse: ResMut<CursorState>,
+    camera: Single<&Transform, With<Camera>>,
 ) {
     mouse.on_egui = false;
 
@@ -110,6 +108,8 @@ fn editor_ui_system(
             for x in &mut x.text_styles {
                 x.1.size *= 1.5;
             }
+
+            ui.label(format!("{:#?}", *camera));
 
             ui.collapsing("Puzzles", |ui| {
                 for (id, info) in puzzle_list.sorted_list() {
@@ -153,20 +153,12 @@ fn editor_ui_system(
                     puzzle.update();
                 }
 
-                if ui.button("Randomize").clicked() {
-                    puzzle.randomize();
-                }
-
                 if ui.button("Triangulate").clicked() {
                     puzzle.triangulate(sel);
                 }
 
                 if ui.button("Update Triangles").clicked() {
                     puzzle.update();
-                }
-
-                if ui.button("Grid").clicked() {
-                    puzzle.grid();
                 }
 
                 if ui.button("Clear Triangles").clicked() {

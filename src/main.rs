@@ -33,11 +33,13 @@ fn main() {
                 draw_cursor_line,
                 open_puzzle_by_id,
                 update_puzzle_mesh,
-                enable_debug_view.run_if(state_changed::<EditorMode>),
+                log_app_state_transitions,
+                log_in_editor_state_transitions,
+                enable_debug_view.run_if(state_changed::<AppState>),
             ),
         )
-        .insert_state(EditorMode::Edit)
-        .insert_state(LoadingState::Loading)
+        .insert_state(AppState::default())
+        .add_computed_state::<InEditorOrPlaying>()
         // `InputFocus` must be set for accessibility to recognize the button.
         .init_resource::<InputFocus>()
         .run();
@@ -46,13 +48,13 @@ fn main() {
 fn startup(
     mut commands: Commands,
     mut _windows: Query<&mut Window, With<PrimaryWindow>>,
-    mut loading: ResMut<NextState<LoadingState>>,
+    mut loading: ResMut<NextState<AppState>>,
 ) {
     commands.spawn(Camera2d);
     commands.insert_resource(Settings::new());
     commands.insert_resource(ClearColor(Srgba::new(0.9, 0.9, 0.9, 1.0).into()));
 
-    commands.spawn(Puzzle::new("Random"));
+    commands.spawn(Puzzle::empty("Random"));
 
     let paths = std::fs::read_dir("./puzzles/").unwrap();
     let mut puzzles = PuzzleIndex::default();
@@ -74,13 +76,13 @@ fn startup(
 
     commands.insert_resource(puzzles);
 
-    loading.set(LoadingState::Done);
+    loading.set(AppState::Menu);
 }
 
-fn enable_debug_view(state: Res<State<EditorMode>>, mut fps: ResMut<FpsOverlayConfig>) {
-    fps.enabled = !state.is_play();
+fn enable_debug_view(state: Res<State<AppState>>, mut fps: ResMut<FpsOverlayConfig>) {
+    fps.enabled = state.is_editor();
     fps.text_color = Color::BLACK;
-    fps.frame_time_graph_config.enabled = !state.is_play();
+    fps.frame_time_graph_config.enabled = state.is_editor();
 }
 
 fn on_input_tick(

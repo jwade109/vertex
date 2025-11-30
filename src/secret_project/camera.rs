@@ -5,8 +5,11 @@ pub struct CameraControllerPlugin;
 
 impl Plugin for CameraControllerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (on_keys, insert_component_data))
-            .add_systems(FixedUpdate, camera_physics);
+        app.add_systems(
+            Update,
+            (on_keys.run_if(is_editor_or_playing), insert_component_data),
+        )
+        .add_systems(FixedUpdate, camera_physics);
     }
 }
 
@@ -39,6 +42,8 @@ fn camera_physics(
 
         ctrl.linear_vel *= 0.87;
         ctrl.zoom_vel *= 0.87;
+
+        tf.translation.z = 100.0;
     }
 }
 

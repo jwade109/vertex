@@ -20,7 +20,7 @@ impl MeshMaker {
     }
 
     pub fn build(self) -> Mesh {
-        let usage = RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD;
+        let usage = RenderAssetUsages::default();
         let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, usage);
         mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, self.positions);
         mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, self.normals);

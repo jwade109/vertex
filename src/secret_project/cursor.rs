@@ -10,15 +10,35 @@ impl Plugin for CursorPlugin {
                 Update,
                 (
                     draw_mouse_cursor,
-                    draw_selected_vertices.run_if(in_state(EditorMode::Select)),
-                    collect_selected_vertices.run_if(in_state(EditorMode::Select)),
-                    do_eraser.run_if(in_state(EditorMode::Eraser)),
-                    do_brush.run_if(in_state(EditorMode::Brush)),
-                    do_select.run_if(in_state(EditorMode::Select)),
+                    draw_selected_vertices.run_if(in_state(AppState::Editing {
+                        mode: EditorMode::Select,
+                    })),
+                    collect_selected_vertices.run_if(in_state(AppState::Editing {
+                        mode: EditorMode::Select,
+                    })),
+                    do_eraser.run_if(in_state(AppState::Editing {
+                        mode: EditorMode::Eraser,
+                    })),
+                    do_brush.run_if(in_state(AppState::Editing {
+                        mode: EditorMode::Brush,
+                    })),
+                    do_select.run_if(in_state(AppState::Editing {
+                        mode: EditorMode::Select,
+                    })),
                 ),
             )
-            .add_systems(OnEnter(EditorMode::Select), on_select_enter)
-            .add_systems(OnExit(EditorMode::Select), on_select_exit);
+            .add_systems(
+                OnEnter(AppState::Editing {
+                    mode: EditorMode::Select,
+                }),
+                on_select_enter,
+            )
+            .add_systems(
+                OnExit(AppState::Editing {
+                    mode: EditorMode::Select,
+                }),
+                on_select_exit,
+            );
     }
 }
 

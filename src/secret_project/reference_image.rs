@@ -60,12 +60,12 @@ fn update_transparency(app: Res<Settings>, mut query: Query<(&mut Sprite, &RefIm
 }
 
 fn update_visibility(
-    state: Res<State<EditorMode>>,
+    state: Res<State<AppState>>,
     mut windows: Query<&mut Visibility, With<RefImageWindow>>,
 ) {
     let v = match **state {
-        EditorMode::Play => Visibility::Hidden,
-        _ => Visibility::Visible,
+        AppState::Editing { .. } => Visibility::Visible,
+        _ => Visibility::Hidden,
     };
 
     for mut vis in &mut windows {
@@ -76,9 +76,9 @@ fn update_visibility(
 fn draw_windows(
     mut painter: ShapePainter,
     query: Query<&RefImageWindow>,
-    state: Res<State<EditorMode>>,
+    state: Res<State<AppState>>,
 ) {
-    if state.is_play() {
+    if !state.is_editor() {
         return;
     }
 

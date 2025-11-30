@@ -12,11 +12,11 @@ impl Plugin for PuzzlePlugin {
                 update_cursor_vertex_info,
                 get_rel_cursor_info,
                 draw_vertices,
-                draw_vertex_cursor_info.run_if(not(in_state(EditorMode::Play))),
-                draw_solution_edges.run_if(not(in_state(EditorMode::Play))),
-                draw_game_edges.run_if(in_state(EditorMode::Play)),
+                draw_vertex_cursor_info.run_if(is_editor_or_playing),
+                draw_solution_edges.run_if(is_editor),
+                draw_game_edges.run_if(is_menu_or_playing),
                 autosave_game_progress
-                    .run_if(in_state(EditorMode::Play))
+                    .run_if(in_state(AppState::Playing))
                     .run_if(on_timer(std::time::Duration::from_secs(10))),
             ),
         );

@@ -52,7 +52,7 @@ fn add_new_sounds(
     asset_server: Res<AssetServer>,
 ) {
     for sound in sounds.read() {
-        info!("{:?}", sound);
+        debug!("{:?}", sound);
         commands.spawn((
             AudioPlayer::new(asset_server.load(sound.to_path())),
             PlaybackSettings::default().with_volume(Volume::Linear(0.2)),

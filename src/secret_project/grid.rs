@@ -126,13 +126,8 @@ pub struct GridPlugin;
 
 impl Plugin for GridPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(SpatialLookup::default()).add_systems(
-            Update,
-            (
-                update_lut,
-                draw_occupied_cells.run_if(not(in_state(EditorMode::Play))),
-            ),
-        );
+        app.insert_resource(SpatialLookup::default())
+            .add_systems(Update, (update_lut, draw_occupied_cells.run_if(is_editor)));
     }
 }
 

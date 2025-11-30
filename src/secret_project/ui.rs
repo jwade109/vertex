@@ -7,8 +7,15 @@ pub struct UiPlugin;
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<UiMessage>();
-        app.add_systems(OnEnter(LoadingState::Done), spawn_ui);
         app.add_systems(Update, (button_interactions, handle_ui_messages));
+
+        // editor/playing menu
+        app.add_systems(OnEnter(InEditorOrPlaying), spawn_playing_menu);
+        app.add_systems(OnExit(InEditorOrPlaying), despawn_playing_menu);
+
+        // main menu
+        app.add_systems(OnEnter(AppState::Menu), spawn_main_menu);
+        app.add_systems(OnExit(AppState::Menu), despawn_main_menu);
     }
 }
 
@@ -18,8 +25,11 @@ pub enum UiMessage {
     Next,
     Save,
     Load,
+    Menu,
     Reset,
-    SetMode(EditorMode),
+    Play,
+    CloseMenu,
+    SetEditorMode(EditorMode),
     Autosolver,
     OpenPuzzle(usize),
 }
@@ -57,7 +67,7 @@ fn button_interactions(
     buttons: Query<(Entity, &Interaction, &UiMessage, &mut BackgroundColor), Changed<Interaction>>,
 ) {
     for (e, interaction, msg, mut color) in buttons {
-        info!("{}: {:?} {:?}", e, interaction, msg);
+        debug!("{}: {:?} {:?}", e, interaction, msg);
         match interaction {
             Interaction::Pressed => {
                 commands.write_message(*msg);
@@ -114,6 +124,7 @@ fn header_bar(font: &TextFont) -> impl Bundle {
     );
 
     (
+        PlayingMenuRoot,
         BackgroundColor(BACKGROUND_COLOR),
         BorderColor {
             bottom: Srgba::gray(0.5).into(),
@@ -145,6 +156,7 @@ fn footer_bar(commands: &mut Commands, font: &TextFont) {
     // footer bar
     commands
         .spawn((
+            PlayingMenuRoot,
             BackgroundColor(BACKGROUND_COLOR),
             BorderColor {
                 top: Srgba::gray(0.5).into(),
@@ -165,12 +177,13 @@ fn footer_bar(commands: &mut Commands, font: &TextFont) {
                 ("Save", UiMessage::Save),
                 ("Load", UiMessage::Load),
                 ("Reset", UiMessage::Reset),
-                ("Edit", UiMessage::SetMode(EditorMode::Edit)),
-                ("Images", UiMessage::SetMode(EditorMode::Images)),
-                ("Select", UiMessage::SetMode(EditorMode::Select)),
-                ("Eraser", UiMessage::SetMode(EditorMode::Eraser)),
-                ("Brush", UiMessage::SetMode(EditorMode::Brush)),
-                ("Play", UiMessage::SetMode(EditorMode::Play)),
+                ("Play", UiMessage::Play),
+                ("Menu", UiMessage::Menu),
+                ("Edit", UiMessage::SetEditorMode(EditorMode::Edit)),
+                ("Images", UiMessage::SetEditorMode(EditorMode::Images)),
+                ("Select", UiMessage::SetEditorMode(EditorMode::Select)),
+                ("Eraser", UiMessage::SetEditorMode(EditorMode::Eraser)),
+                ("Brush", UiMessage::SetEditorMode(EditorMode::Brush)),
                 ("Autosolver", UiMessage::Autosolver),
             ];
 
@@ -182,7 +195,7 @@ fn footer_bar(commands: &mut Commands, font: &TextFont) {
 
 fn handle_ui_messages(
     mut commands: Commands,
-    mut state: ResMut<NextState<EditorMode>>,
+    mut state: ResMut<NextState<AppState>>,
     mut messages: MessageReader<UiMessage>,
     mut puzzle: Single<&mut Puzzle>,
     mut solver: ResMut<Autosolver>,
@@ -207,15 +220,21 @@ fn handle_ui_messages(
             UiMessage::Reset => {
                 puzzle.game_edges.clear();
             }
-            UiMessage::SetMode(m) => {
-                state.set(*m);
+            UiMessage::Play => state.set(AppState::Playing),
+            UiMessage::Menu => state.set(AppState::Menu),
+            UiMessage::SetEditorMode(m) => {
+                state.set(AppState::Editing { mode: *m });
             }
             UiMessage::Autosolver => {
                 solver.toggle();
                 commands.write_message(TextMessage::debug("Toggled Autosolver"));
             }
             UiMessage::OpenPuzzle(id) => {
+                state.set(AppState::Playing);
                 commands.write_message(OpenPuzzleById(*id));
+            }
+            UiMessage::CloseMenu => {
+                state.set(AppState::Playing);
             }
         }
     }
@@ -249,11 +268,17 @@ fn make_button(s: impl Into<String>, font: &TextFont, msg: UiMessage) -> impl Bu
     )
 }
 
+#[derive(Component)]
+struct MenuRoot;
+
+#[derive(Component)]
+struct PlayingMenuRoot;
+
 fn main_menu(commands: &mut Commands, font: &TextFont, index: &PuzzleIndex) {
     let header = (
         font.clone().with_font_size(60.0),
         Text::new("Secret Project"),
-        TextColor(BLACK.into()),
+        TextColor(BLACK.with_alpha(0.4).into()),
         Node {
             margin: UiRect::bottom(px(25.0)),
             ..default()
@@ -261,13 +286,17 @@ fn main_menu(commands: &mut Commands, font: &TextFont, index: &PuzzleIndex) {
     );
 
     let root = commands
-        .spawn(Node {
-            width: percent(100.0),
-            height: percent(100.0),
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            ..default()
-        })
+        .spawn((
+            MenuRoot,
+            Node {
+                width: percent(100.0),
+                height: percent(100.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            BackgroundColor(Srgba::gray(0.5).into()),
+        ))
         .id();
 
     let w = commands
@@ -286,7 +315,6 @@ fn main_menu(commands: &mut Commands, font: &TextFont, index: &PuzzleIndex) {
         ))
         .with_children(|parent| {
             parent.spawn(header);
-
             for (id, info) in index.sorted_list() {
                 let s = format!("#{}: {}", id, info.name);
                 let b = make_button(s, font, UiMessage::OpenPuzzle(id));
@@ -298,11 +326,33 @@ fn main_menu(commands: &mut Commands, font: &TextFont, index: &PuzzleIndex) {
     commands.entity(root).add_child(w);
 }
 
-pub fn spawn_ui(mut commands: Commands, asset_server: Res<AssetServer>, index: Res<PuzzleIndex>) {
+fn spawn_playing_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
+    info!("Spawning playing menu");
     let font = asset_server.load("EBGaramond-Medium.ttf");
     let font = TextFont::from_font_size(25.0).with_font(font);
     commands.spawn(header_bar(&font));
     footer_bar(&mut commands, &font);
+}
 
+fn despawn_playing_menu(mut commands: Commands, query: Query<Entity, With<PlayingMenuRoot>>) {
+    info!("Despawning playing menu");
+    for e in query {
+        commands.entity(e).despawn();
+    }
+}
+
+fn spawn_main_menu(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    index: Res<PuzzleIndex>,
+) {
+    let font = asset_server.load("EBGaramond-Medium.ttf");
+    let font = TextFont::from_font_size(25.0).with_font(font);
     main_menu(&mut commands, &font, &index);
+}
+
+fn despawn_main_menu(mut commands: Commands, query: Query<Entity, With<MenuRoot>>) {
+    for e in query {
+        commands.entity(e).despawn();
+    }
 }
