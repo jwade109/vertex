@@ -9,6 +9,9 @@ impl Plugin for UiPlugin {
         app.add_message::<UiMessage>();
         app.add_systems(Update, (button_interactions, handle_ui_messages));
 
+        app.add_systems(OnEnter(AppState::Network), spawn_network_menu);
+        app.add_systems(OnExit(AppState::Network), despawn_network_menu);
+
         // editor/playing menu
         app.add_systems(OnEnter(InEditorOrPlaying), spawn_playing_menu);
         app.add_systems(OnExit(InEditorOrPlaying), despawn_playing_menu);
@@ -30,6 +33,8 @@ pub enum UiMessage {
     Save,
     Load,
     Menu,
+    Network,
+    NetworkFetch,
     Reset,
     Play,
     CloseMenu,
@@ -98,6 +103,8 @@ fn header_bar(font: &TextFont) -> impl Bundle {
             margin: UiRect::axes(Val::Px(20.0), Val::Px(7.0)),
             min_width: percent(30.0),
             justify_content: JustifyContent::Center,
+            column_gap: px(9.0),
+            padding: UiRect::all(px(9.0)),
             ..default()
         },
         children![
@@ -144,11 +151,7 @@ fn header_bar(font: &TextFont) -> impl Bundle {
             justify_content: JustifyContent::Center,
             ..default()
         },
-        children![
-            // make_button("Previous", font, UiMessage::Previous),
-            title_labels,
-            // make_button("Next", font, UiMessage::Next)
-        ],
+        children![title_labels,],
     )
 }
 
@@ -175,6 +178,8 @@ fn footer_bar(commands: &mut Commands, font: &TextFont) {
                 position_type: PositionType::Absolute,
                 border: UiRect::top(Val::Px(3.0)),
                 justify_content: JustifyContent::Center,
+                column_gap: px(9.0),
+                padding: UiRect::all(px(9.0)),
                 ..default()
             },
         ))
@@ -248,6 +253,12 @@ fn handle_ui_messages(
             UiMessage::ExitToDesktop => {
                 commands.write_message(AppExit::Success);
             }
+            UiMessage::Network => {
+                state.set(AppState::Network);
+            }
+            UiMessage::NetworkFetch => {
+                commands.write_message(NetworkFetch);
+            }
         }
     }
 }
@@ -256,7 +267,7 @@ fn make_button(s: impl Into<String>, font: &TextFont, msg: UiMessage) -> impl Bu
     (
         BackgroundColor(BUTTON_COLOR),
         Node {
-            margin: UiRect::all(Val::Px(9.0)),
+            // margin: UiRect::all(Val::Px(9.0)),
             justify_content: JustifyContent::Center,
             border: UiRect::all(px(2.0)),
             ..default()
@@ -293,6 +304,9 @@ fn vspace(height: f32) -> impl Bundle {
 struct MenuRoot;
 
 #[derive(Component)]
+struct NetworkRoot;
+
+#[derive(Component)]
 struct PlayingMenuRoot;
 
 fn big_text_node(s: impl Into<String>, font: &TextFont) -> impl Bundle {
@@ -325,6 +339,7 @@ fn standard_menu() -> impl Bundle {
             border: UiRect::all(px(3.0)),
             padding: UiRect::all(px(50.0)),
             flex_direction: FlexDirection::Column,
+            row_gap: px(9.0),
             ..default()
         },
         box_shadow(),
@@ -362,6 +377,8 @@ fn main_menu(commands: &mut Commands, font: &TextFont, index: &PuzzleIndex) {
             }
 
             parent.spawn(vspace(30.0));
+
+            parent.spawn(make_button("Download Puzzles", font, UiMessage::Network));
 
             parent.spawn(make_button(
                 "Exit to Desktop",
@@ -451,6 +468,75 @@ fn spawn_victory_screen(mut commands: Commands, asset_server: Res<AssetServer>) 
 }
 
 fn despawn_victory_screen(mut commands: Commands, query: Query<Entity, With<VictoryScreenRoot>>) {
+    for e in query {
+        commands.entity(e).despawn();
+    }
+}
+
+fn network_menu(commands: &mut Commands, font: &TextFont) {
+    let header = big_text_node("Download Puzzles", font);
+
+    let root = commands
+        .spawn((
+            NetworkRoot,
+            Node {
+                width: percent(100.0),
+                height: percent(100.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+        ))
+        .id();
+
+    let w = commands
+        .spawn(standard_menu())
+        .with_children(|parent| {
+            parent.spawn(header);
+
+            let buttons = [
+                ("Check for New Puzzles", UiMessage::NetworkFetch),
+                ("Return to Main Menu", UiMessage::Menu),
+            ];
+
+            parent.spawn(progress_bar());
+            parent.spawn(vspace(20.0));
+
+            for (s, msg) in buttons {
+                parent.spawn(make_button(s, font, msg));
+            }
+        })
+        .id();
+
+    commands.entity(root).add_child(w);
+}
+
+fn progress_bar() -> impl Bundle {
+    (
+        Node {
+            width: percent(100.0),
+            height: px(20.0),
+            ..default()
+        },
+        BackgroundColor(GRAY.into()),
+        children![(
+            Node {
+                width: percent(50.0),
+                height: px(20.0),
+                ..default()
+            },
+            BackgroundColor(ORANGE.into()),
+        )],
+    )
+}
+
+fn spawn_network_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let font = asset_server.load("EBGaramond-Medium.ttf");
+    let font = TextFont::from_font_size(25.0).with_font(font);
+    network_menu(&mut commands, &font);
+}
+
+fn despawn_network_menu(mut commands: Commands, query: Query<Entity, With<NetworkRoot>>) {
     for e in query {
         commands.entity(e).despawn();
     }

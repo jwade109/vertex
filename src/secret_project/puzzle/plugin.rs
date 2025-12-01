@@ -9,9 +9,12 @@ impl Plugin for PuzzlePlugin {
         app.add_systems(
             Update,
             (
-                update_cursor_vertex_info,
+                update_cursor_vertex_info.run_if(is_editor_or_playing),
                 get_rel_cursor_info,
                 draw_vertices,
+                // update_animated_vertices,
+                // draw_animated_vertices,
+                // nudge_vertices,
                 update_title.run_if(is_playing),
                 draw_vertex_cursor_info.run_if(camera_is_moveable),
                 draw_solution_edges.run_if(is_editor),
@@ -157,5 +160,108 @@ fn autosave_game_progress(
         } else {
             info!("Autosaved to {}", path.display());
         }
+    }
+}
+
+#[allow(unused)]
+#[derive(Component)]
+pub struct AnimatedVertex {
+    index: usize,
+    pos: Vec2,
+    offset: Vec2,
+    velocity: Vec2,
+}
+
+#[allow(unused)]
+fn update_animated_vertices(
+    mut commands: Commands,
+    puzzle: Single<&Puzzle>,
+    vertices: Query<(Entity, &mut AnimatedVertex)>,
+    time: Res<Time<Fixed>>,
+) {
+    let kp = 10.0;
+    let kd = 3.0;
+
+    let dt = time.delta_secs();
+    let mut indices = HashSet::new();
+    for (e, mut vertex) in vertices {
+        if let Some(v) = puzzle.vertex_n(vertex.index) {
+            indices.insert(vertex.index);
+
+            let acc = -kp * vertex.offset - kd * vertex.velocity;
+
+            let doff = vertex.velocity * dt;
+            vertex.offset += doff;
+            vertex.velocity += acc * dt;
+
+            vertex.pos = v.pos;
+        } else {
+            commands.entity(e).despawn();
+        }
+    }
+
+    for (id, _) in puzzle.vertices() {
+        if !indices.contains(&id) {
+            if let Some(v) = puzzle.vertex_n(id) {
+                commands.spawn(AnimatedVertex {
+                    index: id,
+                    pos: v.pos,
+                    offset: randvec(10.0, 50.0),
+                    velocity: randvec(10.0, 30.0),
+                });
+            }
+        }
+    }
+}
+
+#[allow(unused)]
+fn draw_animated_vertices(
+    mut painter: ShapePainter,
+    vertices: Query<&AnimatedVertex>,
+    camera: Single<&Transform, With<Camera>>,
+) {
+    for v in vertices {
+        painter.reset();
+        let p = v.pos + v.offset;
+        painter.set_translation(p.extend(50.0));
+        painter.set_color(BLACK);
+        painter.circle(8.0 * camera.scale.x);
+        painter.set_translation(p.extend(51.0));
+        painter.set_color(WHITE);
+        painter.circle(5.0 * camera.scale.x);
+    }
+}
+
+#[allow(unused)]
+fn nudge_vertices(
+    keys: Res<ButtonInput<KeyCode>>,
+    puzzle: Single<&Puzzle>,
+    mouse: Res<CursorState>,
+    vertices: Query<&mut AnimatedVertex>,
+) {
+    if !keys.pressed(KeyCode::KeyN) {
+        return;
+    }
+
+    let pos = match mouse.get() {
+        Some(p) => p,
+        _ => return,
+    };
+
+    let (a, b, c) = match puzzle.triangle_at(pos) {
+        Some(x) => x,
+        _ => return,
+    };
+
+    for mut v in vertices {
+        if v.index != a && v.index != b && v.index != c {
+            continue;
+        }
+
+        let delta = (v.pos + v.offset) - pos;
+        let u = delta.normalize_or_zero();
+        let d = delta.length().max(10.0);
+        let mag = 200.0 / d;
+        v.velocity += u * mag;
     }
 }

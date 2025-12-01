@@ -5,10 +5,7 @@ pub struct AutoSolverPlugin;
 impl Plugin for AutoSolverPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup);
-        app.add_systems(
-            FixedUpdate,
-            do_autosolver.run_if(is_playing),
-        );
+        app.add_systems(FixedUpdate, do_autosolver.run_if(is_playing));
     }
 }
 
@@ -66,9 +63,11 @@ fn do_autosolver(
     if edges.is_empty() {
         commands.write_message(TextMessage::debug("Done!"));
         solver.enabled = false;
+        return;
     }
 
     for (a, b) in edges {
         commands.write_message(ToggleEdge(a, b));
     }
+    commands.write_message(SoundEffect::LightPop);
 }

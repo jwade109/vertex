@@ -359,7 +359,16 @@ impl Puzzle {
         }
     }
 
-    fn get_triangle_at(&mut self, p: Vec2) -> Option<&mut Triangle> {
+    pub fn triangle_at(&self, p: Vec2) -> Option<(usize, usize, usize)> {
+        self.triangles.iter().find_map(|((a, b, c), _)| {
+            let pa = self.vertices.get(a)?.pos;
+            let pb = self.vertices.get(b)?.pos;
+            let pc = self.vertices.get(c)?.pos;
+            point_in_triangle(p, pa, pb, pc).then(|| (*a, *b, *c))
+        })
+    }
+
+    pub fn get_triangle_at(&mut self, p: Vec2) -> Option<&mut Triangle> {
         self.triangles.iter_mut().find_map(|((a, b, c), t)| {
             let a = self.vertices.get(a)?.pos;
             let b = self.vertices.get(b)?.pos;
@@ -394,7 +403,7 @@ pub struct ReferenceImage {
     pub pos: Vec2,
 }
 
-#[derive(Deserialize, Serialize, Default)]
+#[derive(Deserialize, Serialize, Default, Debug)]
 pub struct PuzzleFileStorage {
     pub title: String,
     pub vertices: HashMap<usize, Vec2>,
@@ -687,10 +696,10 @@ pub fn update_puzzle_mesh(
     state: Res<State<AppState>>,
 ) {
     let is_play = match **state {
-        AppState::Loading => return,
         AppState::Menu => true,
         AppState::Playing { .. } => true,
         AppState::Editing { .. } => false,
+        _ => return,
     };
 
     for (e, puzzle, mut mesh_comp) in &mut puzzles {

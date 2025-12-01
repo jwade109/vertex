@@ -5,6 +5,7 @@ pub enum AppState {
     #[default]
     Loading,
     Menu,
+    Network,
     Playing {
         victory: bool,
     },
@@ -54,10 +55,9 @@ impl ComputedStates for InEditorOrPlaying {
 
     fn compute(sources: Self::SourceStates) -> Option<Self> {
         match sources {
-            AppState::Loading => None,
-            AppState::Menu => None,
             AppState::Playing { .. } => Some(Self),
             AppState::Editing { .. } => Some(Self),
+            _ => None,
         }
     }
 }

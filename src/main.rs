@@ -26,6 +26,7 @@ fn main() {
         .add_plugins(PuzzlePlugin)
         .add_plugins(AutoSolverPlugin)
         .add_plugins(ConfettiPlugin)
+        .add_plugins(NetworkPlugin)
         .add_systems(Startup, startup)
         .add_systems(
             Update,
