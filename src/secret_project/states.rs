@@ -21,7 +21,6 @@ pub enum EditorMode {
     Images,
     Select,
     Eraser,
-    Brush,
 }
 
 impl AppState {

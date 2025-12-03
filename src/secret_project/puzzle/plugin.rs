@@ -1,5 +1,3 @@
-use bevy::{time::common_conditions::on_timer, ui::RelativeCursorPosition};
-
 use crate::secret_project::*;
 
 pub struct PuzzlePlugin;
@@ -72,7 +70,10 @@ fn update_cursor_vertex_info(
 
     if buttons.just_released(MouseButton::Left) {
         if let Some((a, b)) = vinfo.pair() {
-            commands.write_message(ToggleEdge(a, b));
+            if a != b {
+                commands.write_message(ToggleEdge(a, b));
+                commands.write_message(SoundEffect::UiTrillDown);
+            }
         }
         vinfo.clicked = None;
     }

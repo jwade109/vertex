@@ -14,14 +14,19 @@ impl Plugin for ReferenceImagePlugin {
                 sync_sprite_to_window,
                 insert_window_if_needed,
                 open_images,
-                step_windows,
+                step_windows_active.run_if(in_state(AppState::Editing {
+                    mode: EditorMode::Images,
+                })),
+                step_windows_inactive.run_if(not(in_state(AppState::Editing {
+                    mode: EditorMode::Images,
+                }))),
             ),
         );
         app.add_message::<OpenReferenceImage>();
     }
 }
 
-fn step_windows(
+fn step_windows_active(
     windows: Query<&mut RefImageWindow>,
     cursor: Res<CursorState>,
     mouse: Res<ButtonInput<MouseButton>>,
@@ -53,6 +58,14 @@ fn step_windows(
             w.is_clicked = false;
             w.mouse_delta = None;
         }
+    }
+}
+
+fn step_windows_inactive(windows: Query<&mut RefImageWindow>) {
+    for mut w in windows {
+        w.is_hovered = false;
+        w.is_clicked = false;
+        w.mouse_delta = None;
     }
 }
 
@@ -218,40 +231,8 @@ impl RefImageWindow {
         0.0 <= p.x && p.x <= self.dims.x && 0.0 <= p.y && p.y <= self.dims.y
     }
 
-    fn corners(&self) -> [Vec2; 4] {
-        let half = self.dims / 2.0;
-        let flipped = half.with_x(-half.x);
-
-        [
-            self.pos + half,
-            self.pos + flipped,
-            self.pos - half,
-            self.pos - flipped,
-        ]
-    }
-
     pub fn should_despawn(&self) -> bool {
         self.should_despawn
-    }
-
-    fn on_left_click_pressed(&mut self) {
-        self.is_clicked = self.is_hovered;
-    }
-
-    fn on_left_click_release(&mut self) {
-        self.is_clicked = false;
-    }
-
-    pub fn on_input(&mut self, input: &mut InputMessage) {
-        if self.is_hovered && input.is_left_pressed() {
-            self.on_left_click_pressed();
-            input.dont_propagate();
-        } else if self.is_clicked && input.is_left_released() {
-            self.on_left_click_release();
-            input.dont_propagate();
-        } else if self.is_hovered && input.is_right_pressed() {
-            self.should_despawn = true;
-        }
     }
 
     fn draw(&self, painter: &mut ShapePainter) {

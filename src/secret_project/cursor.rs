@@ -19,9 +19,6 @@ impl Plugin for CursorPlugin {
                     do_eraser.run_if(in_state(AppState::Editing {
                         mode: EditorMode::Eraser,
                     })),
-                    do_brush.run_if(in_state(AppState::Editing {
-                        mode: EditorMode::Brush,
-                    })),
                     do_select.run_if(in_state(AppState::Editing {
                         mode: EditorMode::Select,
                     })),
@@ -173,52 +170,6 @@ fn do_eraser(
                 }
             }
         }
-    }
-}
-
-fn do_brush(
-    mut painter: ShapePainter,
-    cursor: Res<CursorState>,
-    camera: Single<&Transform, With<Camera>>,
-    lut: Res<SpatialLookup>,
-    puzzle: Single<&Puzzle>,
-    mut commands: Commands,
-    buttons: Res<ButtonInput<MouseButton>>,
-) {
-    let scale = camera.scale.x;
-
-    let p = match cursor.get() {
-        Some(p) => p,
-        _ => return,
-    };
-
-    let is_pressed = buttons.pressed(MouseButton::Left);
-
-    let eraser_world_radius = ERASER_SCREEN_WIDTH * scale;
-
-    draw_circle(&mut painter, p, 100.0, eraser_world_radius, 2.0, GREEN);
-
-    if !is_pressed {
-        return;
-    }
-
-    let mut count = 0;
-
-    for g in grids_in_radius(p, eraser_world_radius) {
-        for vid in lut.lup_vertex(g).iter().flat_map(|e| e.iter()) {
-            if let Some(v) = puzzle.vertex_n(*vid) {
-                if v.pos.distance(p) < eraser_world_radius {
-                    count += 1;
-                }
-            }
-        }
-    }
-
-    if count < 5 {
-        let r = random(0.3, 0.8) * eraser_world_radius;
-        let a = random(0.0, 2.0 * std::f32::consts::PI);
-        let q = p + Vec2::from_angle(a) * r;
-        commands.write_message(AddVertex(q));
     }
 }
 

@@ -192,7 +192,6 @@ fn footer_bar(commands: &mut Commands, font: &TextFont) {
                 ("Images", UiMessage::SetEditorMode(EditorMode::Images)),
                 ("Select", UiMessage::SetEditorMode(EditorMode::Select)),
                 ("Eraser", UiMessage::SetEditorMode(EditorMode::Eraser)),
-                ("Brush", UiMessage::SetEditorMode(EditorMode::Brush)),
                 ("Autosolver", UiMessage::Autosolver),
             ];
 

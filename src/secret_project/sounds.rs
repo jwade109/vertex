@@ -6,8 +6,13 @@ pub struct SoundPlugin;
 
 impl Plugin for SoundPlugin {
     fn build(&self, app: &mut App) {
-        app.add_message::<SoundEffect>()
-            .add_systems(Update, add_new_sounds);
+        app.add_message::<SoundEffect>().add_systems(
+            Update,
+            (
+                add_new_sounds,
+                debug_info_sounds.run_if(on_timer(std::time::Duration::from_secs(1))),
+            ),
+        );
     }
 }
 
@@ -56,8 +61,15 @@ fn add_new_sounds(
     for sound in sounds.read() {
         debug!("{:?}", sound);
         commands.spawn((
+            Name::new(format!("{:?}", sound)),
             AudioPlayer::new(asset_server.load(sound.to_path())),
-            PlaybackSettings::default().with_volume(Volume::Linear(0.2)),
+            PlaybackSettings::DESPAWN.with_volume(Volume::Linear(0.2)),
         ));
+    }
+}
+
+fn debug_info_sounds(sounds: Query<&Name, With<PlaybackSettings>>) {
+    for sound in sounds.iter().enumerate() {
+        info!("{:?}", sound);
     }
 }
