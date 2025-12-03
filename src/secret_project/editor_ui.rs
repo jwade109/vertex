@@ -49,8 +49,9 @@ fn save_puzzle_system(
     info!("Saving puzzle: {:?}", info);
 
     for (path, window) in windows {
+        let path_str = format!("{}", path.0.file_name().unwrap().display());
         let img = ReferenceImage {
-            path: path.0.clone(),
+            path: path_str,
             pos: window.pos,
         };
         images.push(img);
@@ -92,10 +93,6 @@ fn editor_ui_system(
         commands.write_message(SavePuzzle);
     }
 
-    if keys.pressed(KeyCode::ControlLeft) && keys.just_pressed(KeyCode::KeyO) {
-        commands.write_message(FileMessage::OpenFile(FileType::Any));
-    }
-
     let ctx = contexts.ctx_mut().unwrap();
 
     egui::Window::new("Editor")
@@ -135,12 +132,8 @@ fn editor_ui_system(
             });
 
             ui.collapsing("Editor", |ui| {
-                if ui.button("Open Puzzle").clicked() {
-                    commands.write_message(FileMessage::OpenFile(FileType::Puzzle));
-                }
-
                 if ui.button("Open Image").clicked() {
-                    commands.write_message(FileMessage::OpenFile(FileType::ReferenceImage));
+                    commands.write_message(FileMessage::OpenFile(FileType));
                 }
 
                 if ui.button("Complete").clicked() {

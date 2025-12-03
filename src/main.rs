@@ -67,12 +67,14 @@ fn startup(
             let path = path.path();
             let puzzle_file = path.join("puzzle.txt");
             println!("Name: {}", puzzle_file.display());
-            if let Ok((puzzle, _)) = puzzle_from_file(puzzle_file.clone()) {
-                let info = PuzzleInfo {
-                    name: puzzle.title().to_string(),
-                    path: puzzle_file,
-                };
-                puzzles.insert(id, info);
+            match puzzle_from_file(puzzle_file.clone()) {
+                Ok((puzzle, _)) => {
+                    let info = PuzzleInfo::new(puzzle.title().to_string(), puzzle_file);
+                    puzzles.insert(id, info);
+                }
+                Err(e) => {
+                    error!(?e);
+                }
             }
         }
     }

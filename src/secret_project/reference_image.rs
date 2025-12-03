@@ -14,25 +14,57 @@ impl Plugin for ReferenceImagePlugin {
                 sync_sprite_to_window,
                 insert_window_if_needed,
                 open_images,
+                step_windows,
             ),
         );
-        app.add_systems(FixedUpdate, step_windows);
-        app.add_message::<OpenImage>();
+        app.add_message::<OpenReferenceImage>();
     }
 }
 
-fn step_windows(windows: Query<&mut RefImageWindow>) {
+fn step_windows(
+    windows: Query<&mut RefImageWindow>,
+    cursor: Res<CursorState>,
+    mouse: Res<ButtonInput<MouseButton>>,
+) {
     for mut w in windows {
-        w.step();
+        if let Some(p) = cursor.get() {
+            w.is_hovered = w.contains_basic_bb(p);
+
+            if w.is_hovered {
+                if mouse.just_pressed(MouseButton::Left) {
+                    w.is_clicked = true;
+                }
+                if !mouse.pressed(MouseButton::Left) {
+                    w.is_clicked = false;
+                }
+            } else {
+                w.is_clicked = false;
+            }
+
+            if w.is_clicked {
+                if let Some(delta) = w.mouse_delta {
+                    w.pos = p - delta;
+                }
+            } else {
+                w.mouse_delta = Some(p - w.pos);
+            }
+        } else {
+            w.is_hovered = false;
+            w.is_clicked = false;
+            w.mouse_delta = None;
+        }
     }
 }
 
-#[derive(Message, Debug, Deref)]
-pub struct OpenImage(pub ReferenceImage);
+#[derive(Message, Debug)]
+pub struct OpenReferenceImage {
+    pub path: PathBuf,
+    pub pos: Vec2,
+}
 
 fn open_images(
     mut commands: Commands,
-    mut messages: MessageReader<OpenImage>,
+    mut messages: MessageReader<OpenReferenceImage>,
     asset_server: Res<AssetServer>,
 ) {
     for msg in messages.read() {
@@ -50,10 +82,7 @@ fn update_transparency(app: Res<Settings>, mut query: Query<(&mut Sprite, &RefIm
     for (mut s, window) in &mut query {
         let alpha = app.ref_image_alpha.lerp(
             1.0,
-            window
-                .hovered_animation
-                .actual
-                .max(window.clicked_animation.actual),
+            (window.is_hovered as u8 as f32).max(window.is_clicked as u8 as f32),
         );
         s.color = Srgba::new(1.0, 1.0, 1.0, alpha).into();
     }
@@ -91,27 +120,21 @@ const REF_IMAGE_Z: f32 = 0.0;
 
 fn insert_new_image(mut commands: Commands, mut msg: MessageReader<FileMessage>) -> Result {
     for msg in msg.read() {
-        let (filetype, path) = if let FileMessage::Opened(filetype, path) = msg {
-            (filetype, path)
+        let path = if let FileMessage::Opened(_, path) = msg {
+            path
         } else {
             continue;
         };
-
-        match filetype {
-            FileType::Any => (),
-            FileType::Puzzle => continue,
-            FileType::ReferenceImage => (),
-        }
 
         if path.extension().map(|s| s.to_str().unwrap()) == Some("txt") {
             warn!("Tried to load puzzle as image. Fix this.");
             continue;
         }
 
-        commands.write_message(OpenImage(ReferenceImage {
+        commands.write_message(OpenReferenceImage {
             path: path.clone(),
             pos: Vec2::ZERO,
-        }));
+        });
     }
 
     Ok(())
@@ -159,25 +182,8 @@ fn sync_sprite_to_window(
             let size = image.size().as_vec2();
             tf.translation.x = window.pos.x;
             tf.translation.y = window.pos.y;
-            tf.scale.x = window.dims_actual.x / size.x;
-            tf.scale.y = window.dims_actual.y / size.y;
-        }
-    }
-}
-
-#[derive(Debug)]
-struct HandleState {
-    // is_hovered: bool,
-    // is_clicked: bool,
-    color: Srgba,
-}
-
-impl HandleState {
-    fn new(color: Srgba) -> Self {
-        Self {
-            // is_hovered: false,
-            // is_clicked: false,
-            color,
+            tf.scale.x = window.dims.x / size.x;
+            tf.scale.y = window.dims.y / size.y;
         }
     }
 }
@@ -188,14 +194,10 @@ pub struct RefImagePath(pub PathBuf);
 #[derive(Component, Debug)]
 pub struct RefImageWindow {
     pub pos: Vec2,
-    dims_actual: Vec2,
-    pub dims_target: Vec2,
+    pub dims: Vec2,
     mouse_delta: Option<Vec2>,
     is_hovered: bool,
     is_clicked: bool,
-    hovered_animation: Lpf,
-    clicked_animation: Lpf,
-    handle_states: [HandleState; 4],
     should_despawn: bool,
 }
 
@@ -203,30 +205,21 @@ impl RefImageWindow {
     pub fn new(pos: Vec2, dims: Vec2) -> Self {
         Self {
             pos,
-            dims_actual: dims * 0.9,
-            dims_target: dims,
+            dims: dims,
             mouse_delta: None,
             is_hovered: false,
             is_clicked: false,
-            hovered_animation: Lpf::new(0.0, 0.0, 0.2),
-            clicked_animation: Lpf::new(0.0, 0.0, 0.2),
-            handle_states: [
-                HandleState::new(RED),
-                HandleState::new(WHITE),
-                HandleState::new(WHITE),
-                HandleState::new(WHITE),
-            ],
             should_despawn: false,
         }
     }
 
     fn contains_basic_bb(&self, p: Vec2) -> bool {
-        let p = p - (self.pos - self.dims_actual / 2.0);
-        0.0 <= p.x && p.x <= self.dims_actual.x && 0.0 <= p.y && p.y <= self.dims_actual.y
+        let p = p - (self.pos - self.dims / 2.0);
+        0.0 <= p.x && p.x <= self.dims.x && 0.0 <= p.y && p.y <= self.dims.y
     }
 
     fn corners(&self) -> [Vec2; 4] {
-        let half = self.dims_actual / 2.0;
+        let half = self.dims / 2.0;
         let flipped = half.with_x(-half.x);
 
         [
@@ -235,27 +228,6 @@ impl RefImageWindow {
             self.pos - half,
             self.pos - flipped,
         ]
-    }
-
-    fn handles(&self) -> impl Iterator<Item = (Vec2, &HandleState)> + use<'_> {
-        self.corners().into_iter().zip(self.handle_states.iter())
-    }
-
-    fn handle_radius(&self) -> f32 {
-        self.hovered_animation.actual * (1.0 - self.clicked_animation.actual) * 20.0
-    }
-
-    fn contains_corners(&self, p: Vec2) -> bool {
-        let r = self.handle_radius();
-        self.corners().into_iter().any(|c| c.distance(p) <= r)
-    }
-
-    pub fn step(&mut self) {
-        self.hovered_animation.target = self.is_hovered as u8 as f32;
-        self.hovered_animation.step();
-        self.clicked_animation.target = self.is_clicked as u8 as f32;
-        self.clicked_animation.step();
-        self.dims_actual += (self.dims_target - self.dims_actual) * self.hovered_animation.alpha;
     }
 
     pub fn should_despawn(&self) -> bool {
@@ -283,10 +255,10 @@ impl RefImageWindow {
     }
 
     fn draw(&self, painter: &mut ShapePainter) {
-        let extra_w = 15.0 * self.clicked_animation.actual;
-        let anim_hw = self.dims_actual / 2.0 + Vec2::splat(extra_w);
-        let t = 2.0 + self.hovered_animation.actual * 4.0;
-        let color = GRAY.mix(&BLACK, self.hovered_animation.actual);
+        let extra_w = 15.0 * self.is_clicked as u8 as f32;
+        let anim_hw = self.dims / 2.0 + Vec2::splat(extra_w);
+        let t = 2.0 + self.is_hovered as u8 as f32 * 4.0;
+        let color = GRAY.mix(&BLACK, self.is_hovered as u8 as f32);
         draw_rect(
             painter,
             self.pos - anim_hw,
@@ -295,11 +267,5 @@ impl RefImageWindow {
             color,
             REF_IMAGE_BORDER_Z,
         );
-
-        let r = self.handle_radius();
-        for (corner, handle) in self.handles() {
-            fill_circle(painter, corner, 100.0, r, handle.color);
-            draw_circle(painter, corner, 100.0, r, 3.0, BLACK);
-        }
     }
 }

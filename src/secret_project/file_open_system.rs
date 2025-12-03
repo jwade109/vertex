@@ -14,19 +14,11 @@ impl Plugin for FilePlugin {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum FileType {
-    Any,
-    Puzzle,
-    ReferenceImage,
-}
+pub struct FileType;
 
 impl FileType {
-    fn filter(&self) -> (&'static str, &'static [&'static str]) {
-        match self {
-            Self::Any => ("Anything", &["txt", "png", "jpg", "jpeg"]),
-            Self::Puzzle => ("Puzzle", &["txt"]),
-            Self::ReferenceImage => ("Image", &["png", "jpg", "jpeg"]),
-        }
+    fn filter() -> (&'static str, &'static [&'static str]) {
+        ("Image", &["png", "jpg", "jpeg"])
     }
 }
 
@@ -38,7 +30,6 @@ pub enum FileMessage {
 
 #[derive(Component)]
 struct SelectedFile {
-    id: FileType,
     task: Task<Option<PathBuf>>,
 }
 
@@ -47,17 +38,17 @@ pub struct OpenPuzzleById(pub usize);
 
 fn open_dialogue(mut commands: Commands, mut msg: MessageReader<FileMessage>) {
     for msg in msg.read() {
-        let id = if let FileMessage::OpenFile(id) = msg {
+        let _ = if let FileMessage::OpenFile(id) = msg {
             id
         } else {
             continue;
         };
 
         let thread_pool = AsyncComputeTaskPool::get();
-        let (name, ext) = id.filter();
+        let (name, ext) = FileType::filter();
         let dg = FileDialog::new().set_directory("/").add_filter(name, ext);
         let task = thread_pool.spawn(async move { dg.pick_file() });
-        commands.spawn(SelectedFile { id: *id, task });
+        commands.spawn(SelectedFile { task });
     }
 }
 
@@ -67,7 +58,7 @@ fn poll_tasks(mut commands: Commands, mut tasks: Query<(Entity, &mut SelectedFil
             info!("{:?}", result);
             commands.entity(entity).despawn();
             if let Some(path) = result {
-                commands.write_message(FileMessage::Opened(sel.id, path));
+                commands.write_message(FileMessage::Opened(FileType, path));
             }
         }
     }

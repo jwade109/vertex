@@ -51,10 +51,7 @@ fn do_network_fetch() -> Result<PuzzleIndex, PuzzleIndexError> {
 
             let r: PuzzleFileStorage = serde_yaml::from_str(&text)?;
 
-            let info = PuzzleInfo {
-                name: r.title,
-                path: PathBuf::new(),
-            };
+            let info = PuzzleInfo::new(r.title, PathBuf::new());
 
             info!(?info);
 

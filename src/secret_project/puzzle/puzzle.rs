@@ -2,6 +2,7 @@ use crate::secret_project::*;
 use bevy::camera::visibility::NoFrustumCulling;
 use kmeans_colors::{get_kmeans, Kmeans};
 use palette::Srgb;
+use path_absolutize::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::*;
@@ -399,7 +400,7 @@ impl Puzzle {
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct ReferenceImage {
-    pub path: PathBuf,
+    pub path: String,
     pub pos: Vec2,
 }
 
@@ -584,6 +585,13 @@ pub struct PuzzleInfo {
 }
 
 impl PuzzleInfo {
+    pub fn new(name: String, path: PathBuf) -> Self {
+        Self {
+            name,
+            path: path.absolutize().unwrap().to_path_buf(),
+        }
+    }
+
     pub fn autosave_path(&self) -> PathBuf {
         let parent = self
             .path
@@ -591,6 +599,15 @@ impl PuzzleInfo {
             .map(|p| p.to_path_buf())
             .unwrap_or(PathBuf::from("/tmp/"));
         parent.join("autosave.yaml")
+    }
+
+    pub fn reference_image_path(&self, name: &str) -> PathBuf {
+        let parent = self
+            .path
+            .parent()
+            .map(|p| p.to_path_buf())
+            .unwrap_or(PathBuf::from("/tmp/"));
+        parent.join(name)
     }
 }
 
@@ -668,7 +685,12 @@ pub fn open_puzzle_by_id(
         )));
 
         for img in images {
-            commands.write_message(OpenImage(img));
+            let full_path = info.reference_image_path(&img.path);
+            info!("Opening: {:?}, {:?}, {}", img, info, full_path.display());
+            commands.write_message(OpenReferenceImage {
+                path: full_path,
+                pos: img.pos,
+            });
         }
 
         open.0 = Some(id);
