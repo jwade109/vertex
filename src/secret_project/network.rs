@@ -4,11 +4,26 @@ pub struct NetworkPlugin;
 
 impl Plugin for NetworkPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            Update,
-            (spawn_network_request, spawn_network_req_on_key, poll_tasks),
-        );
+        app.add_systems(Update, (spawn_network_request, poll_tasks));
         app.add_message::<NetworkFetch>();
+        app.insert_resource(NetworkManifest::default());
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct PuzzleNetworkInfo {
+    pub title: String,
+    pub short_name: String,
+    pub url: String,
+}
+
+impl PuzzleNetworkInfo {
+    pub fn new(title: String, short_name: String, url: String) -> Self {
+        Self {
+            title,
+            short_name,
+            url,
+        }
     }
 }
 
@@ -31,12 +46,14 @@ impl From<serde_yaml::Error> for PuzzleIndexError {
     }
 }
 
-fn do_network_fetch() -> Result<PuzzleIndex, PuzzleIndexError> {
+pub type NetworkPuzzleIndex = HashMap<usize, PuzzleNetworkInfo>;
+
+fn do_network_fetch() -> Result<NetworkPuzzleIndex, PuzzleIndexError> {
     // let url = "";
     let url = "https://jwade109.github.io/vertex_puzzles/manifest.txt";
     let resp = reqwest::blocking::get(url)?;
 
-    let mut index = PuzzleIndex::default();
+    let mut index = HashMap::new();
 
     if let Ok(text) = resp.text() {
         let lines: Vec<&str> = text.lines().collect();
@@ -51,7 +68,7 @@ fn do_network_fetch() -> Result<PuzzleIndex, PuzzleIndexError> {
 
             let r: PuzzleFileStorage = serde_yaml::from_str(&text)?;
 
-            let info = PuzzleInfo::new(r.title, PathBuf::new());
+            let info = PuzzleNetworkInfo::new(r.title, name.to_string(), url);
 
             info!(?info);
 
@@ -67,14 +84,11 @@ pub struct NetworkFetch;
 
 #[derive(Component)]
 struct NetworkWorker {
-    task: Task<Result<PuzzleIndex, PuzzleIndexError>>,
+    task: Task<Result<NetworkPuzzleIndex, PuzzleIndexError>>,
 }
 
-fn spawn_network_req_on_key(mut commands: Commands, keys: Res<ButtonInput<KeyCode>>) {
-    if keys.just_pressed(KeyCode::KeyB) {
-        commands.write_message(NetworkFetch);
-    }
-}
+#[derive(Resource, Debug, Clone, Default)]
+pub struct NetworkManifest(pub Option<NetworkPuzzleIndex>);
 
 fn spawn_network_request(mut commands: Commands, mut msg: MessageReader<NetworkFetch>) {
     if msg.is_empty() {
@@ -88,11 +102,18 @@ fn spawn_network_request(mut commands: Commands, mut msg: MessageReader<NetworkF
     commands.spawn(NetworkWorker { task });
 }
 
-fn poll_tasks(mut commands: Commands, mut tasks: Query<(Entity, &mut NetworkWorker)>) {
+fn poll_tasks(
+    mut commands: Commands,
+    mut tasks: Query<(Entity, &mut NetworkWorker)>,
+    mut manifest: ResMut<NetworkManifest>,
+) {
     for (entity, mut sel) in tasks.iter_mut() {
         if let Some(result) = future::block_on(future::poll_once(&mut sel.task)) {
             info!("{:?}", result);
             commands.entity(entity).despawn();
+            if let Ok(man) = result {
+                manifest.0 = Some(man);
+            }
         }
     }
 }

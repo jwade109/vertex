@@ -112,7 +112,7 @@ fn editor_ui_system(
 
             ui.collapsing("Puzzles", |ui| {
                 for (id, info) in puzzle_list.sorted_list() {
-                    if ui.button(&info.name).clicked() {
+                    if ui.button(&info.title).clicked() {
                         info!("Opening a puzzle: {:?}", info);
                         commands.write_message(OpenPuzzleById(id));
                     }

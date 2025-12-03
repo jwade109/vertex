@@ -65,11 +65,12 @@ fn startup(
     for (id, path) in paths.enumerate() {
         if let Ok(path) = path {
             let path = path.path();
+            let short_name = path.file_stem().unwrap().to_str().unwrap().to_string();
             let puzzle_file = path.join("puzzle.txt");
             println!("Name: {}", puzzle_file.display());
             match puzzle_from_file(puzzle_file.clone()) {
                 Ok((puzzle, _)) => {
-                    let info = PuzzleInfo::new(puzzle.title().to_string(), puzzle_file);
+                    let info = PuzzleInstallInfo::new(puzzle.title().to_string(), short_name, puzzle_file);
                     puzzles.insert(id, info);
                 }
                 Err(e) => {

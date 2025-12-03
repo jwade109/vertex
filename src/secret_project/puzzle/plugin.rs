@@ -10,9 +10,6 @@ impl Plugin for PuzzlePlugin {
                 update_cursor_vertex_info.run_if(is_editor_or_playing),
                 get_rel_cursor_info,
                 draw_vertices,
-                // update_animated_vertices,
-                // draw_animated_vertices,
-                // nudge_vertices,
                 update_title.run_if(is_playing),
                 draw_vertex_cursor_info.run_if(camera_is_moveable),
                 draw_solution_edges.run_if(is_editor),
@@ -20,6 +17,10 @@ impl Plugin for PuzzlePlugin {
                 autosave_game_progress
                     .run_if(is_playing)
                     .run_if(on_timer(std::time::Duration::from_secs(1))),
+                // experimental animated vertex stuff
+                // update_animated_vertices,
+                // draw_animated_vertices,
+                // nudge_vertices,
             ),
         );
         app.insert_resource(CursorVertexInfo::default());

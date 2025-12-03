@@ -578,16 +578,18 @@ pub fn draw_cursor_line(
     }
 }
 
-#[derive(Debug)]
-pub struct PuzzleInfo {
-    pub name: String,
+#[derive(Debug, Clone)]
+pub struct PuzzleInstallInfo {
+    pub title: String,
+    pub short_name: String,
     pub path: PathBuf,
 }
 
-impl PuzzleInfo {
-    pub fn new(name: String, path: PathBuf) -> Self {
+impl PuzzleInstallInfo {
+    pub fn new(title: String, short_name: String, path: PathBuf) -> Self {
         Self {
-            name,
+            title,
+            short_name,
             path: path.absolutize().unwrap().to_path_buf(),
         }
     }
@@ -611,12 +613,12 @@ impl PuzzleInfo {
     }
 }
 
-#[derive(Resource, Debug, Default, Deref, DerefMut)]
-pub struct PuzzleIndex(HashMap<usize, PuzzleInfo>);
+#[derive(Resource, Debug, Default, Deref, DerefMut, Clone)]
+pub struct PuzzleIndex(HashMap<usize, PuzzleInstallInfo>);
 
 impl PuzzleIndex {
-    pub fn sorted_list<'a>(&'a self) -> Vec<(usize, &'a PuzzleInfo)> {
-        let mut list: Vec<(usize, &PuzzleInfo)> =
+    pub fn sorted_list<'a>(&'a self) -> Vec<(usize, &'a PuzzleInstallInfo)> {
+        let mut list: Vec<(usize, &PuzzleInstallInfo)> =
             self.0.iter().map(|(id, info)| (*id, info)).collect();
         list.sort_by_key(|e| e.0);
         list
