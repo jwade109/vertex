@@ -8,10 +8,10 @@ impl Installation {
         Self(root.into())
     }
 
-    pub fn initialize(root: impl Into<PathBuf>) -> Self {
+    pub fn initialize(root: impl Into<PathBuf>) -> Result<Self, VertexError> {
         let install = Self::new(root);
-        initialize_install_directory(&install);
-        install
+        initialize_install_directory(&install)?;
+        Ok(install)
     }
 
     pub fn root(&self) -> &Path {
@@ -47,12 +47,12 @@ impl Installation {
     }
 }
 
-fn create_settings_file(install: &Installation) -> Result<(), PuzzleManifestError> {
+fn create_settings_file(install: &Installation) -> Result<(), VertexError> {
     // TODO
     Ok(())
 }
 
-pub fn initialize_install_directory(install: &Installation) -> Result<(), PuzzleManifestError> {
+pub fn initialize_install_directory(install: &Installation) -> Result<(), VertexError> {
     for dir in [install.puzzles(), install.save_data()] {
         if !std::fs::exists(&dir)? {
             match std::fs::create_dir_all(&dir) {
@@ -117,7 +117,7 @@ pub fn load_puzzle_manifest(
 pub fn install_remote_manifest(
     install: &Installation,
     overwrite: bool,
-) -> Result<u64, PuzzleManifestError> {
+) -> Result<u64, VertexError> {
     let path = install.network_manifest();
     download_file(NETWORK_MANIFEST_URL, &path, overwrite)
 }
@@ -126,7 +126,7 @@ pub fn install_puzzle_file(
     install: &Installation,
     short_name: &str,
     overwrite: bool,
-) -> Result<u64, PuzzleManifestError> {
+) -> Result<u64, VertexError> {
     let puzzle_path = install.puzzle_file(short_name);
     let url = puzzle_file_url(short_name);
     download_file(&url, &puzzle_path, overwrite)
@@ -144,7 +144,7 @@ mod tests {
             std::fs::remove_dir_all(test_dir).unwrap();
         }
 
-        let install = Installation::initialize(test_dir);
+        let install = Installation::initialize(test_dir).unwrap();
         let short_name = "rose";
 
         assert!(install_puzzle_file(&install, short_name, false).is_ok());

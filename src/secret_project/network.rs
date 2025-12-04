@@ -10,7 +10,7 @@ impl Plugin for NetworkPlugin {
     }
 }
 
-pub fn download_file(url: &str, path: &Path, overwrite: bool) -> Result<u64, PuzzleManifestError> {
+pub fn download_file(url: &str, path: &Path, overwrite: bool) -> Result<u64, VertexError> {
     if std::fs::exists(path)? {
         if overwrite {
             info!("Overwriting {} to {}", url, path.display());
@@ -40,25 +40,25 @@ impl PuzzleNetworkInfo {
 
 #[allow(unused)]
 #[derive(Debug)]
-pub enum PuzzleManifestError {
+pub enum VertexError {
     Reqwest(reqwest::Error),
     Serde(serde_yaml::Error),
     IO(std::io::Error),
 }
 
-impl From<reqwest::Error> for PuzzleManifestError {
+impl From<reqwest::Error> for VertexError {
     fn from(value: reqwest::Error) -> Self {
         Self::Reqwest(value)
     }
 }
 
-impl From<serde_yaml::Error> for PuzzleManifestError {
+impl From<serde_yaml::Error> for VertexError {
     fn from(value: serde_yaml::Error) -> Self {
         Self::Serde(value)
     }
 }
 
-impl From<std::io::Error> for PuzzleManifestError {
+impl From<std::io::Error> for VertexError {
     fn from(value: std::io::Error) -> Self {
         Self::IO(value)
     }
@@ -66,11 +66,7 @@ impl From<std::io::Error> for PuzzleManifestError {
 
 pub type NetworkPuzzleManifest = HashMap<usize, PuzzleNetworkInfo>;
 
-pub const NETWORK_MANIFEST_URL: &'static str =
-    "https://jwade109.github.io/vertex_puzzles/manifest.txt";
-
-fn do_network_fetch(install: Installation) -> Result<(), PuzzleManifestError> {
-
+fn do_network_fetch(install: Installation) -> Result<(), VertexError> {
     // always keep this updated
     install_remote_manifest(&install, true)?;
 
@@ -81,6 +77,9 @@ fn do_network_fetch(install: Installation) -> Result<(), PuzzleManifestError> {
 
     Ok(())
 }
+
+pub const NETWORK_MANIFEST_URL: &'static str =
+    "https://jwade109.github.io/vertex_puzzles/manifest.txt";
 
 pub fn puzzle_file_url(short_name: &str) -> String {
     format!(
@@ -94,7 +93,7 @@ pub struct NetworkFetch;
 
 #[derive(Component)]
 struct NetworkWorker {
-    task: Task<Result<(), PuzzleManifestError>>,
+    task: Task<Result<(), VertexError>>,
 }
 
 #[derive(Resource, Debug, Clone, Default)]
@@ -118,18 +117,11 @@ fn spawn_network_request(
     commands.spawn(NetworkWorker { task });
 }
 
-fn poll_tasks(
-    mut commands: Commands,
-    mut tasks: Query<(Entity, &mut NetworkWorker)>,
-    mut manifest: ResMut<NetworkManifest>,
-) {
+fn poll_tasks(mut commands: Commands, mut tasks: Query<(Entity, &mut NetworkWorker)>) {
     for (entity, mut sel) in tasks.iter_mut() {
         if let Some(result) = future::block_on(future::poll_once(&mut sel.task)) {
             info!("{:?}", result);
             commands.entity(entity).despawn();
-            // if let Ok(man) = result {
-            //     manifest.0 = Some(man);
-            // }
         }
     }
 }

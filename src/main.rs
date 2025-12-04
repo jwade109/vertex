@@ -55,7 +55,11 @@ fn startup(
 ) {
     commands.spawn(Camera2d);
 
-    let install = Installation::initialize("C:/Users/Wade Foster/Documents/vertex/install/");
+    let args: Vec<String> = std::env::args().collect();
+
+    let install_dir = args.get(1).expect("Requires install directory via CLI");
+
+    let install = Installation::initialize(install_dir).expect("Failed to initialize installation");
 
     commands.insert_resource(Settings::default());
     commands.insert_resource(install.clone());
