@@ -14,9 +14,11 @@ impl Plugin for PuzzlePlugin {
                 draw_vertex_cursor_info.run_if(camera_is_moveable),
                 draw_solution_edges.run_if(is_editor),
                 draw_game_edges.run_if(is_menu_or_playing),
-                autosave_game_progress
-                    .run_if(is_playing)
-                    .run_if(on_timer(std::time::Duration::from_secs(1))),
+                // TODO turn autosave back on!
+                // autosave_game_progress
+                //     .run_if(is_playing)
+                //     .run_if(on_timer(std::time::Duration::from_secs(1))),
+                detect_win_condition.run_if(is_playing),
                 // experimental animated vertex stuff
                 // update_animated_vertices,
                 // draw_animated_vertices,
@@ -139,7 +141,7 @@ fn autosave_game_progress(
     mut text: MessageWriter<TextMessage>,
     puzzle: Single<Ref<Puzzle>>,
     current: Res<CurrentPuzzle>,
-    index: Res<PuzzleIndex>,
+    index: Res<PuzzleManifest>,
 ) {
     if puzzle.is_changed() {
         let id = match current.0 {
@@ -265,5 +267,31 @@ fn nudge_vertices(
         let d = delta.length().max(10.0);
         let mag = 200.0 / d;
         v.velocity += u * mag;
+    }
+}
+
+fn detect_win_condition(
+    puzzle: Single<Ref<Puzzle>>,
+    current: Res<CurrentPuzzle>,
+    mut index: ResMut<PuzzleManifest>,
+    mut state: ResMut<NextState<AppState>>,
+) {
+    if !puzzle.is_changed() {
+        return;
+    }
+
+    let id = match current.0 {
+        Some(id) => id,
+        _ => return,
+    };
+
+    let info = match index.get_mut(&id) {
+        Some(info) => info,
+        _ => return,
+    };
+
+    if !info.is_complete && puzzle.is_complete() {
+        info.is_complete = true;
+        state.set(AppState::Playing { victory: true });
     }
 }

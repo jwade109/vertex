@@ -43,6 +43,7 @@ pub enum UiMessage {
     OpenPuzzle(usize),
     CloseVictoryScreen,
     ExitToDesktop,
+    DespawnEntity(Entity),
 }
 
 const BACKGROUND_COLOR: Color = Color::LinearRgba(LinearRgba {
@@ -94,8 +95,6 @@ fn button_interactions(
         }
     }
 }
-
-// fn on_insert_puzzle_index()
 
 fn header_bar(font: &TextFont) -> impl Bundle {
     let title_labels = (
@@ -258,6 +257,9 @@ fn handle_ui_messages(
             UiMessage::NetworkFetch => {
                 commands.write_message(NetworkFetch);
             }
+            UiMessage::DespawnEntity(e) => {
+                commands.entity(*e).despawn();
+            }
         }
     }
 }
@@ -284,6 +286,61 @@ fn make_button(s: impl Into<String>, font: &TextFont, msg: UiMessage) -> impl Bu
                 ..default()
             }
         ),],
+    )
+}
+
+fn make_install_thing(s: impl Into<String>, font: &TextFont) -> impl Bundle {
+    let text_node = |s: String, color: Color, side: i8| {
+        let border_width = px(2.0);
+
+        let (border_radius, border) = if side < 0 {
+            (
+                BorderRadius::left(px(4.0)),
+                UiRect::new(border_width, Val::ZERO, border_width, border_width),
+            )
+        } else if side > 0 {
+            (
+                BorderRadius::right(px(4.0)),
+                UiRect::new(Val::ZERO, border_width, border_width, border_width),
+            )
+        } else {
+            (BorderRadius::all(px(0.0)), UiRect::vertical(border_width))
+        };
+
+        (
+            BackgroundColor(color),
+            Node {
+                // margin: UiRect::all(Val::Px(9.0)),
+                justify_content: JustifyContent::Center,
+                border,
+                width: percent(100.0),
+                ..default()
+            },
+            border_radius,
+            Button,
+            BorderColor::all(BLACK),
+            children![(
+                Text::new(s),
+                TextColor(BLACK.into()),
+                font.clone().with_font_size(24.0),
+                Node {
+                    margin: UiRect::all(Val::Px(8.0)),
+                    ..default()
+                }
+            )],
+        )
+    };
+
+    (
+        Node {
+            width: percent(100.0),
+            ..default()
+        },
+        children![
+            text_node(s.into(), BUTTON_COLOR, -1),
+            text_node("Local".to_string(), LIGHT_GREEN.into(), 0),
+            text_node("Network".to_string(), LIGHT_BLUE.into(), 1),
+        ],
     )
 }
 
@@ -349,7 +406,7 @@ fn standard_menu() -> impl Bundle {
     )
 }
 
-fn main_menu(commands: &mut Commands, font: &TextFont, index: &PuzzleIndex) {
+fn main_menu(commands: &mut Commands, font: &TextFont, index: &PuzzleManifest) {
     let header = big_text_node("Secret Project", font);
 
     let root = commands
@@ -408,7 +465,7 @@ fn despawn_playing_menu(mut commands: Commands, query: Query<Entity, With<Playin
 fn spawn_main_menu(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    index: Res<PuzzleIndex>,
+    index: Res<PuzzleManifest>,
 ) {
     let font = asset_server.load("EBGaramond-Medium.ttf");
     let font = TextFont::from_font_size(25.0).with_font(font);
@@ -472,7 +529,7 @@ fn despawn_victory_screen(mut commands: Commands, query: Query<Entity, With<Vict
     }
 }
 
-fn network_menu(commands: &mut Commands, font: &TextFont, manifest: &Option<NetworkPuzzleIndex>) {
+fn network_menu(commands: &mut Commands, font: &TextFont, manifest: &Option<NetworkPuzzleManifest>) {
     let header = big_text_node("Download Puzzles", font);
 
     let root = commands
@@ -507,8 +564,7 @@ fn network_menu(commands: &mut Commands, font: &TextFont, manifest: &Option<Netw
 
             if let Some(manifest) = manifest {
                 for info in manifest {
-                    let s = format!("{:?}", info);
-                    parent.spawn(make_button(s, font, UiMessage::OpenPuzzle(*info.0)));
+                    parent.spawn(make_install_thing(info.1.short_name.clone(), font));
                 }
             }
         })

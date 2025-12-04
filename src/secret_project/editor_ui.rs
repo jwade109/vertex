@@ -26,7 +26,7 @@ fn save_puzzle_system(
     windows: Query<(&RefImagePath, &RefImageWindow)>,
     mut save: MessageReader<SavePuzzle>,
     current: Res<CurrentPuzzle>,
-    puzzle_list: Res<PuzzleIndex>,
+    puzzle_list: Res<PuzzleManifest>,
 ) {
     if save.is_empty() {
         return;
@@ -83,7 +83,7 @@ fn editor_ui_system(
     images: Res<Assets<Image>>,
     keys: Res<ButtonInput<KeyCode>>,
     sel: Res<SelectedVertices>,
-    puzzle_list: Res<PuzzleIndex>,
+    puzzle_list: Res<PuzzleManifest>,
     mut mouse: ResMut<CursorState>,
     camera: Single<&Transform, With<Camera>>,
 ) {

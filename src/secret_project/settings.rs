@@ -8,8 +8,8 @@ pub struct Settings {
     pub n_colors: u16,
 }
 
-impl Settings {
-    pub fn new() -> Self {
+impl Default for Settings {
+    fn default() -> Self {
         Self {
             ref_image_alpha: 0.4,
             triangle_alpha: 1.0,

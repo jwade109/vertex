@@ -6,7 +6,6 @@ impl Plugin for ConfettiPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(OnEnter(VictoryScreen), on_puzzle_complete);
         app.add_systems(FixedUpdate, update_confetti);
-        app.add_systems(Update, do_victory);
     }
 }
 
@@ -27,12 +26,6 @@ impl ConfettiVelocity {
             angular: random(-14.0, 14.0),
             scale,
         }
-    }
-}
-
-fn do_victory(keys: Res<ButtonInput<KeyCode>>, mut state: ResMut<NextState<AppState>>) {
-    if keys.just_pressed(KeyCode::KeyV) {
-        state.set(AppState::Playing { victory: true });
     }
 }
 

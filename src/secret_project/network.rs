@@ -10,73 +10,83 @@ impl Plugin for NetworkPlugin {
     }
 }
 
+pub fn download_file(url: &str, path: &Path, overwrite: bool) -> Result<u64, PuzzleManifestError> {
+    if std::fs::exists(path)? {
+        if overwrite {
+            info!("Overwriting {} to {}", url, path.display());
+        } else {
+            info!("{} already exists", path.display());
+            return Ok(0);
+        }
+    } else {
+        info!("Downloading {} to {}", url, path.display());
+    }
+    let mut resp = reqwest::blocking::get(url)?.error_for_status()?;
+    let mut file = std::fs::File::create(path)?;
+    Ok(std::io::copy(&mut resp, &mut file)?)
+}
+
 #[derive(Debug, Clone)]
 pub struct PuzzleNetworkInfo {
-    pub title: String,
     pub short_name: String,
     pub url: String,
 }
 
 impl PuzzleNetworkInfo {
-    pub fn new(title: String, short_name: String, url: String) -> Self {
-        Self {
-            title,
-            short_name,
-            url,
-        }
+    pub fn new(short_name: String, url: String) -> Self {
+        Self { short_name, url }
     }
 }
 
 #[allow(unused)]
 #[derive(Debug)]
-enum PuzzleIndexError {
+pub enum PuzzleManifestError {
     Reqwest(reqwest::Error),
     Serde(serde_yaml::Error),
+    IO(std::io::Error),
 }
 
-impl From<reqwest::Error> for PuzzleIndexError {
+impl From<reqwest::Error> for PuzzleManifestError {
     fn from(value: reqwest::Error) -> Self {
         Self::Reqwest(value)
     }
 }
 
-impl From<serde_yaml::Error> for PuzzleIndexError {
+impl From<serde_yaml::Error> for PuzzleManifestError {
     fn from(value: serde_yaml::Error) -> Self {
         Self::Serde(value)
     }
 }
 
-pub type NetworkPuzzleIndex = HashMap<usize, PuzzleNetworkInfo>;
-
-fn do_network_fetch() -> Result<NetworkPuzzleIndex, PuzzleIndexError> {
-    // let url = "";
-    let url = "https://jwade109.github.io/vertex_puzzles/manifest.txt";
-    let resp = reqwest::blocking::get(url)?;
-
-    let mut index = HashMap::new();
-
-    if let Ok(text) = resp.text() {
-        let lines: Vec<&str> = text.lines().collect();
-        println!("Got {} puzzles", lines.len());
-        for (id, name) in lines.iter().enumerate() {
-            let url = format!(
-                "https://jwade109.github.io/vertex_puzzles/{}/puzzle.txt",
-                name
-            );
-            let resp = reqwest::blocking::get(url.clone())?.error_for_status()?;
-            let text = resp.text()?;
-
-            let r: PuzzleFileStorage = serde_yaml::from_str(&text)?;
-
-            let info = PuzzleNetworkInfo::new(r.title, name.to_string(), url);
-
-            info!(?info);
-
-            index.insert(id, info);
-        }
+impl From<std::io::Error> for PuzzleManifestError {
+    fn from(value: std::io::Error) -> Self {
+        Self::IO(value)
     }
+}
 
-    Ok(index)
+pub type NetworkPuzzleManifest = HashMap<usize, PuzzleNetworkInfo>;
+
+pub const NETWORK_MANIFEST_URL: &'static str =
+    "https://jwade109.github.io/vertex_puzzles/manifest.txt";
+
+fn do_network_fetch(install: Installation) -> Result<(), PuzzleManifestError> {
+
+    // always keep this updated
+    install_remote_manifest(&install, true)?;
+
+    install_puzzle_file(&install, "rose", false)?;
+    install_puzzle_file(&install, "doggo", false)?;
+    install_puzzle_file(&install, "rubik", false)?;
+    install_puzzle_file(&install, "potato", false)?;
+
+    Ok(())
+}
+
+pub fn puzzle_file_url(short_name: &str) -> String {
+    format!(
+        "https://jwade109.github.io/vertex_puzzles/{}/puzzle.txt",
+        short_name
+    )
 }
 
 #[derive(Message)]
@@ -84,21 +94,27 @@ pub struct NetworkFetch;
 
 #[derive(Component)]
 struct NetworkWorker {
-    task: Task<Result<NetworkPuzzleIndex, PuzzleIndexError>>,
+    task: Task<Result<(), PuzzleManifestError>>,
 }
 
 #[derive(Resource, Debug, Clone, Default)]
-pub struct NetworkManifest(pub Option<NetworkPuzzleIndex>);
+pub struct NetworkManifest(pub Option<NetworkPuzzleManifest>);
 
-fn spawn_network_request(mut commands: Commands, mut msg: MessageReader<NetworkFetch>) {
+fn spawn_network_request(
+    mut commands: Commands,
+    mut msg: MessageReader<NetworkFetch>,
+    install: Res<Installation>,
+) {
     if msg.is_empty() {
         return;
     }
 
     for _ in msg.read() {}
 
+    let install = install.clone();
+
     let thread_pool = AsyncComputeTaskPool::get();
-    let task = thread_pool.spawn(async move { do_network_fetch() });
+    let task = thread_pool.spawn(async move { do_network_fetch(install.clone()) });
     commands.spawn(NetworkWorker { task });
 }
 
@@ -111,9 +127,9 @@ fn poll_tasks(
         if let Some(result) = future::block_on(future::poll_once(&mut sel.task)) {
             info!("{:?}", result);
             commands.entity(entity).despawn();
-            if let Ok(man) = result {
-                manifest.0 = Some(man);
-            }
+            // if let Ok(man) = result {
+            //     manifest.0 = Some(man);
+            // }
         }
     }
 }

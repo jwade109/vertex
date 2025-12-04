@@ -583,14 +583,16 @@ pub struct PuzzleInstallInfo {
     pub title: String,
     pub short_name: String,
     pub path: PathBuf,
+    pub is_complete: bool,
 }
 
 impl PuzzleInstallInfo {
-    pub fn new(title: String, short_name: String, path: PathBuf) -> Self {
+    pub fn new(title: String, short_name: String, path: PathBuf, is_complete: bool) -> Self {
         Self {
             title,
             short_name,
             path: path.absolutize().unwrap().to_path_buf(),
+            is_complete,
         }
     }
 
@@ -614,9 +616,9 @@ impl PuzzleInstallInfo {
 }
 
 #[derive(Resource, Debug, Default, Deref, DerefMut, Clone)]
-pub struct PuzzleIndex(HashMap<usize, PuzzleInstallInfo>);
+pub struct PuzzleManifest(HashMap<usize, PuzzleInstallInfo>);
 
-impl PuzzleIndex {
+impl PuzzleManifest {
     pub fn sorted_list<'a>(&'a self) -> Vec<(usize, &'a PuzzleInstallInfo)> {
         let mut list: Vec<(usize, &PuzzleInstallInfo)> =
             self.0.iter().map(|(id, info)| (*id, info)).collect();
@@ -627,7 +629,7 @@ impl PuzzleIndex {
 
 pub fn open_puzzle_by_id(
     mut commands: Commands,
-    list: Res<PuzzleIndex>,
+    list: Res<PuzzleManifest>,
     all_windows: Query<Entity, With<RefImageWindow>>,
     mut puzzle: Single<&mut Puzzle>,
     mut msg: MessageReader<OpenPuzzleById>,

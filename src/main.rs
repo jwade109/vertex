@@ -54,33 +54,24 @@ fn startup(
     mut loading: ResMut<NextState<AppState>>,
 ) {
     commands.spawn(Camera2d);
-    commands.insert_resource(Settings::new());
+
+    let install = Installation::initialize("C:/Users/Wade Foster/Documents/vertex/install/");
+
+    commands.insert_resource(Settings::default());
+    commands.insert_resource(install.clone());
     commands.insert_resource(ClearColor(Srgba::new(0.9, 0.9, 0.9, 1.0).into()));
 
     commands.spawn(Puzzle::empty("Random"));
 
-    let paths = std::fs::read_dir("./puzzles/").unwrap();
-    let mut puzzles = PuzzleIndex::default();
-
-    for (id, path) in paths.enumerate() {
-        if let Ok(path) = path {
-            let path = path.path();
-            let short_name = path.file_stem().unwrap().to_str().unwrap().to_string();
-            let puzzle_file = path.join("puzzle.txt");
-            println!("Name: {}", puzzle_file.display());
-            match puzzle_from_file(puzzle_file.clone()) {
-                Ok((puzzle, _)) => {
-                    let info = PuzzleInstallInfo::new(puzzle.title().to_string(), short_name, puzzle_file);
-                    puzzles.insert(id, info);
-                }
-                Err(e) => {
-                    error!(?e);
-                }
-            }
+    let manifest = match load_puzzle_manifest(&install) {
+        Ok(manifest) => manifest,
+        Err(e) => {
+            error!("Failed to load manifest: {:?}", e);
+            PuzzleManifest::default()
         }
-    }
+    };
 
-    commands.insert_resource(puzzles);
+    commands.insert_resource(manifest);
 
     loading.set(AppState::Menu);
 }
