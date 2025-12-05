@@ -529,7 +529,7 @@ fn despawn_victory_screen(mut commands: Commands, query: Query<Entity, With<Vict
     }
 }
 
-fn network_menu(commands: &mut Commands, font: &TextFont, manifest: &Option<NetworkPuzzleManifest>) {
+fn network_menu(commands: &mut Commands, font: &TextFont, manifest: &PuzzleManifest) {
     let header = big_text_node("Download Puzzles", font);
 
     let root = commands
@@ -562,10 +562,8 @@ fn network_menu(commands: &mut Commands, font: &TextFont, manifest: &Option<Netw
                 parent.spawn(make_button(s, font, msg));
             }
 
-            if let Some(manifest) = manifest {
-                for info in manifest {
-                    parent.spawn(make_install_thing(info.1.short_name.clone(), font));
-                }
+            for info in manifest.sorted_list() {
+                parent.spawn(make_install_thing(info.1.short_name.clone(), font));
             }
         })
         .id();
@@ -595,11 +593,11 @@ fn progress_bar() -> impl Bundle {
 fn spawn_network_menu(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    manifest: Res<NetworkManifest>,
+    manifest: Res<PuzzleManifest>,
 ) {
     let font = asset_server.load("EBGaramond-Medium.ttf");
     let font = TextFont::from_font_size(25.0).with_font(font);
-    network_menu(&mut commands, &font, &manifest.0);
+    network_menu(&mut commands, &font, &manifest);
 }
 
 fn despawn_network_menu(mut commands: Commands, query: Query<Entity, With<NetworkRoot>>) {

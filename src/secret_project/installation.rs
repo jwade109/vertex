@@ -31,11 +31,15 @@ impl Installation {
     }
 
     pub fn network_manifest(&self) -> PathBuf {
-        self.0.join("network_manifest.yaml")
+        self.0.join("manifest.yaml")
+    }
+
+    pub fn puzzle_dir(&self, short_name: &str) -> PathBuf {
+        self.puzzles().join(short_name)
     }
 
     pub fn puzzle_file(&self, short_name: &str) -> PathBuf {
-        self.puzzles().join(short_name).with_extension("yaml")
+        self.puzzle_dir(short_name).join("puzzle.yaml")
     }
 
     pub fn save_data_file(&self, short_name: &str) -> PathBuf {
@@ -48,7 +52,8 @@ impl Installation {
 }
 
 fn create_settings_file(install: &Installation) -> Result<(), VertexError> {
-    // TODO
+    let path = install.settings();
+    save_to_file(&Settings::default(), &path)?;
     Ok(())
 }
 
@@ -83,9 +88,7 @@ pub fn initialize_install_directory(install: &Installation) -> Result<(), Vertex
     Ok(())
 }
 
-pub fn load_puzzle_manifest(
-    install: &Installation,
-) -> Result<PuzzleManifest, Box<dyn std::error::Error>> {
+pub fn create_puzzle_manifest(install: &Installation) -> Result<PuzzleManifest, VertexError> {
     let paths = std::fs::read_dir(install.puzzles())?;
     let mut puzzles = PuzzleManifest::default();
 
@@ -98,7 +101,7 @@ pub fn load_puzzle_manifest(
             .to_str()
             .ok_or("File stem is not convertible to string!")?
             .to_string();
-        let puzzle_file = path.join("puzzle.txt");
+        let puzzle_file = install.puzzle_file(&short_name);
         let (puzzle, _) = puzzle_from_file(puzzle_file.clone())?;
         let is_complete = puzzle.is_complete();
         let info = PuzzleInstallInfo::new(
@@ -129,6 +132,7 @@ pub fn install_puzzle_file(
 ) -> Result<u64, VertexError> {
     let puzzle_path = install.puzzle_file(short_name);
     let url = puzzle_file_url(short_name);
+    std::fs::create_dir(install.puzzle_dir(short_name))?;
     download_file(&url, &puzzle_path, overwrite)
 }
 

@@ -66,7 +66,7 @@ fn save_puzzle_system(
         }
         Err(e) => {
             commands.write_message(TextMessage::info(format!(
-                "Failed to save puzzle to \"{}\": {}",
+                "Failed to save puzzle to \"{}\": {:?}",
                 info.path.display(),
                 e
             )));

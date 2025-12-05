@@ -1,6 +1,6 @@
 use crate::secret_project::*;
 
-#[derive(Resource)]
+#[derive(Resource, Deserialize, Serialize)]
 pub struct Settings {
     pub ref_image_alpha: f32,
     pub triangle_alpha: f32,

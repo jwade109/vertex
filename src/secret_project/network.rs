@@ -6,7 +6,6 @@ impl Plugin for NetworkPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Update, (spawn_network_request, poll_tasks));
         app.add_message::<NetworkFetch>();
-        app.insert_resource(NetworkManifest::default());
     }
 }
 
@@ -26,24 +25,13 @@ pub fn download_file(url: &str, path: &Path, overwrite: bool) -> Result<u64, Ver
     Ok(std::io::copy(&mut resp, &mut file)?)
 }
 
-#[derive(Debug, Clone)]
-pub struct PuzzleNetworkInfo {
-    pub short_name: String,
-    pub url: String,
-}
-
-impl PuzzleNetworkInfo {
-    pub fn new(short_name: String, url: String) -> Self {
-        Self { short_name, url }
-    }
-}
-
 #[allow(unused)]
 #[derive(Debug)]
 pub enum VertexError {
     Reqwest(reqwest::Error),
     Serde(serde_yaml::Error),
     IO(std::io::Error),
+    Str(String),
 }
 
 impl From<reqwest::Error> for VertexError {
@@ -64,7 +52,11 @@ impl From<std::io::Error> for VertexError {
     }
 }
 
-pub type NetworkPuzzleManifest = HashMap<usize, PuzzleNetworkInfo>;
+impl From<&str> for VertexError {
+    fn from(value: &str) -> Self {
+        Self::Str(value.to_string())
+    }
+}
 
 fn do_network_fetch(install: Installation) -> Result<(), VertexError> {
     // always keep this updated
@@ -79,7 +71,7 @@ fn do_network_fetch(install: Installation) -> Result<(), VertexError> {
 }
 
 pub const NETWORK_MANIFEST_URL: &'static str =
-    "https://jwade109.github.io/vertex_puzzles/manifest.txt";
+    "https://jwade109.github.io/vertex_puzzles/manifest.yaml";
 
 pub fn puzzle_file_url(short_name: &str) -> String {
     format!(
@@ -95,9 +87,6 @@ pub struct NetworkFetch;
 struct NetworkWorker {
     task: Task<Result<(), VertexError>>,
 }
-
-#[derive(Resource, Debug, Clone, Default)]
-pub struct NetworkManifest(pub Option<NetworkPuzzleManifest>);
 
 fn spawn_network_request(
     mut commands: Commands,
@@ -120,7 +109,10 @@ fn spawn_network_request(
 fn poll_tasks(mut commands: Commands, mut tasks: Query<(Entity, &mut NetworkWorker)>) {
     for (entity, mut sel) in tasks.iter_mut() {
         if let Some(result) = future::block_on(future::poll_once(&mut sel.task)) {
-            info!("{:?}", result);
+            match result {
+                Ok(_) => info!("Task successful"),
+                Err(e) => error!("Task failed: {:?}", e),
+            }
             commands.entity(entity).despawn();
         }
     }

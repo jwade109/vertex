@@ -460,7 +460,7 @@ pub fn puzzle_to_file(
     puzzle: &Puzzle,
     filepath: &Path,
     images: Vec<ReferenceImage>,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<(), VertexError> {
     let repr = puzzle_to_repr(puzzle, images);
     let s = serde_yaml::to_string(&repr)?;
     std::fs::write(filepath, s)?;
@@ -469,10 +469,10 @@ pub fn puzzle_to_file(
 
 pub fn puzzle_from_file(
     filepath: impl Into<PathBuf>,
-) -> Result<(Puzzle, Vec<ReferenceImage>), Box<dyn std::error::Error>> {
+) -> Result<(Puzzle, Vec<ReferenceImage>), VertexError> {
     let filepath = filepath.into();
-    let s = std::fs::read_to_string(filepath)?;
-    let repr: PuzzleFileStorage = serde_yaml::from_str(&s)?;
+    info!("Loading puzzle at {}", filepath.display());
+    let repr: PuzzleFileStorage = load_from_file(&filepath)?;
     Ok(repr_to_puzzle(repr))
 }
 
@@ -483,30 +483,6 @@ pub fn point_in_triangle(test: Vec2, a: Vec2, b: Vec2, c: Vec2) -> bool {
         / ((b.y - c.y) * (a.x - c.x) + (c.x - b.x) * (a.y - c.y));
     let gamma = 1.0 - alpha - beta;
     alpha > 0.0 && beta > 0.0 && gamma > 0.0
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-struct SaveProgress {
-    puzzle_title: String,
-    edges: Vec<(usize, usize)>,
-}
-
-pub fn save_progress(puzzle: &Puzzle, filename: &Path) -> Result<(), Box<dyn std::error::Error>> {
-    let mut prog = SaveProgress {
-        puzzle_title: puzzle.title().to_string(),
-        edges: Vec::new(),
-    };
-
-    for edge in &puzzle.game_edges.0 {
-        prog.edges.push(*edge)
-    }
-
-    prog.edges.sort();
-
-    let s = serde_yaml::to_string(&prog)?;
-    std::fs::write(filename, s)?;
-
-    Ok(())
 }
 
 pub fn draw_vertices(
@@ -596,15 +572,6 @@ impl PuzzleInstallInfo {
         }
     }
 
-    pub fn autosave_path(&self) -> PathBuf {
-        let parent = self
-            .path
-            .parent()
-            .map(|p| p.to_path_buf())
-            .unwrap_or(PathBuf::from("/tmp/"));
-        parent.join("autosave.yaml")
-    }
-
     pub fn reference_image_path(&self, name: &str) -> PathBuf {
         let parent = self
             .path
@@ -627,11 +594,24 @@ impl PuzzleManifest {
     }
 }
 
+pub fn save_to_file<T: Serialize>(val: &T, path: &Path) -> Result<(), VertexError> {
+    let s = serde_yaml::to_string(&val)?;
+    Ok(std::fs::write(path, s)?)
+}
+
+pub fn load_from_file<T: for<'a> Deserialize<'a>>(path: &Path) -> Result<T, VertexError> {
+    let s = std::fs::read_to_string(path)?;
+    let val: T = serde_yaml::from_str(&s)?;
+    Ok(val)
+}
+
 pub fn open_puzzle_by_id(
     mut commands: Commands,
     list: Res<PuzzleManifest>,
+    install: Res<Installation>,
     all_windows: Query<Entity, With<RefImageWindow>>,
     mut puzzle: Single<&mut Puzzle>,
+    mut save_data: Single<&mut SaveData>,
     mut msg: MessageReader<OpenPuzzleById>,
     mut open: ResMut<CurrentPuzzle>,
     mut title: Single<&mut RevealedText, With<UiTitle>>,
@@ -657,25 +637,19 @@ pub fn open_puzzle_by_id(
             }
         };
 
-        let autosave_path = info.autosave_path();
+        **puzzle = p;
 
-        let autosave = match load_autosave_progress(&autosave_path) {
+        let save_data_path = install.save_data_file(&info.short_name);
+
+        let save_data = match SaveData::from_file(&save_data_path) {
             Ok(p) => p,
             Err(e) => {
-                error!(?e);
-                None
+                error!("Failed to load save data: {:?}", e);
+                SaveData::default()
             }
         };
 
-        **puzzle = p;
-
-        if let Some(prog) = autosave {
-            // todo do something with progress
-            puzzle.game_edges.clear();
-            for (a, b) in prog.edges {
-                puzzle.game_edges.add_edge(a, b);
-            }
-        }
+        puzzle.game_edges = save_data.edges;
 
         for mut number in &mut number {
             number.0 = format!("#{}", id);
@@ -757,17 +731,5 @@ pub fn update_title(
     for puzzle in puzzles {
         let progress = puzzle.progress();
         text.set_progress(progress);
-    }
-}
-
-fn load_autosave_progress(path: &Path) -> Result<Option<SaveProgress>, Box<dyn std::error::Error>> {
-    if std::fs::exists(path).unwrap_or(false) {
-        let s = std::fs::read_to_string(path)?;
-        let repr: SaveProgress = serde_yaml::from_str(&s)?;
-        info!("Loaded autosave at {}", path.display());
-        Ok(Some(repr))
-    } else {
-        info!("No autosave data at {}", path.display());
-        Ok(None)
     }
 }

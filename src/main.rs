@@ -65,9 +65,10 @@ fn startup(
     commands.insert_resource(install.clone());
     commands.insert_resource(ClearColor(Srgba::new(0.9, 0.9, 0.9, 1.0).into()));
 
+    commands.spawn(SaveData::default());
     commands.spawn(Puzzle::empty("Random"));
 
-    let manifest = match load_puzzle_manifest(&install) {
+    let manifest = match create_puzzle_manifest(&install) {
         Ok(manifest) => manifest,
         Err(e) => {
             error!("Failed to load manifest: {:?}", e);

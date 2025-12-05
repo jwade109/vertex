@@ -14,10 +14,9 @@ impl Plugin for PuzzlePlugin {
                 draw_vertex_cursor_info.run_if(camera_is_moveable),
                 draw_solution_edges.run_if(is_editor),
                 draw_game_edges.run_if(is_menu_or_playing),
-                // TODO turn autosave back on!
-                // autosave_game_progress
-                //     .run_if(is_playing)
-                //     .run_if(on_timer(std::time::Duration::from_secs(1))),
+                autosave_game_progress
+                    .run_if(is_playing)
+                    .run_if(on_timer(std::time::Duration::from_secs_f32(0.1))),
                 detect_win_condition.run_if(is_playing),
                 // experimental animated vertex stuff
                 // update_animated_vertices,
@@ -142,28 +141,33 @@ fn autosave_game_progress(
     puzzle: Single<Ref<Puzzle>>,
     current: Res<CurrentPuzzle>,
     index: Res<PuzzleManifest>,
+    install: Res<Installation>,
 ) {
-    if puzzle.is_changed() {
-        let id = match current.0 {
-            Some(id) => id,
-            _ => return,
-        };
+    if !puzzle.is_changed() {
+        return;
+    }
 
-        let info = match index.get(&id) {
-            Some(info) => info,
-            _ => return,
-        };
+    let id = match current.0 {
+        Some(id) => id,
+        _ => return,
+    };
 
-        let path = info.autosave_path();
+    let info = match index.get(&id) {
+        Some(info) => info,
+        _ => return,
+    };
 
-        info!("Puzzle has been changed since last autosave");
-        text.write(TextMessage::debug("Autosaved progress!"));
-        if let Err(e) = save_progress(&puzzle, &path) {
-            error!("Failed to save: {:?}", e);
-            text.write(TextMessage::info("Failed to autosave :("));
-        } else {
-            info!("Autosaved to {}", path.display());
-        }
+    let path = install.save_data_file(&info.short_name);
+
+    info!("Puzzle has been changed since last autosave");
+
+    let save_data = SaveData::from_puzzle(&puzzle);
+
+    if let Err(e) = save_to_file(&save_data, &path) {
+        error!("Failed to save: {:?}", e);
+        text.write(TextMessage::info("Failed to autosave :("));
+    } else {
+        info!("Autosaved to {}", path.display());
     }
 }
 
