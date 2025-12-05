@@ -205,6 +205,7 @@ fn handle_ui_messages(
     mut state: ResMut<NextState<AppState>>,
     mut messages: MessageReader<UiMessage>,
     mut puzzle: Single<&mut Puzzle>,
+    mut save: Single<&mut SaveData>,
     mut solver: ResMut<Autosolver>,
     current: Res<CurrentPuzzle>,
 ) {
@@ -227,7 +228,8 @@ fn handle_ui_messages(
             UiMessage::Save => (),
             UiMessage::Load => (),
             UiMessage::Reset => {
-                puzzle.game_edges.clear();
+                save.edges.clear();
+                save.is_complete = false;
             }
             UiMessage::Play => state.set(AppState::Playing { victory: false }),
             UiMessage::Menu => state.set(AppState::Menu),

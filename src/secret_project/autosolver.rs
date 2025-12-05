@@ -36,6 +36,7 @@ fn do_autosolver(
     mut commands: Commands,
     mut solver: ResMut<Autosolver>,
     puzzle: Single<&Puzzle>,
+    save: Single<&SaveData>,
     time: Res<Time<Fixed>>,
 ) {
     if !solver.enabled {
@@ -51,7 +52,7 @@ fn do_autosolver(
     }
 
     for (a, b) in &puzzle.solution_edges.0 {
-        if !puzzle.game_edges.is_edge(*a, *b) && !edges.contains(&(*a, *b)) {
+        if !save.edges.is_edge(*a, *b) && !edges.contains(&(*a, *b)) {
             edges.insert((*a, *b));
         }
 

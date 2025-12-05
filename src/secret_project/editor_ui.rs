@@ -27,6 +27,7 @@ fn save_puzzle_system(
     mut save: MessageReader<SavePuzzle>,
     current: Res<CurrentPuzzle>,
     puzzle_list: Res<PuzzleManifest>,
+    install: Res<Installation>,
 ) {
     if save.is_empty() {
         return;
@@ -57,17 +58,19 @@ fn save_puzzle_system(
         images.push(img);
     }
 
-    match puzzle_to_file(&puzzle, &info.path, images) {
+    let path = install.puzzle_file(&info.short_name);
+
+    match puzzle_to_file(&puzzle, &path, images) {
         Ok(()) => {
             commands.write_message(TextMessage::info(format!(
                 "Saved puzzle to \"{}\"",
-                info.path.display()
+                path.display()
             )));
         }
         Err(e) => {
             commands.write_message(TextMessage::info(format!(
                 "Failed to save puzzle to \"{}\": {:?}",
-                info.path.display(),
+                path.display(),
                 e
             )));
         }
@@ -79,6 +82,7 @@ fn editor_ui_system(
     mut commands: Commands,
     mut app: ResMut<Settings>,
     mut puzzle: Single<&mut Puzzle>,
+    mut save: Single<&mut SaveData>,
     sprites: Query<(Entity, &Sprite, &Transform)>,
     images: Res<Assets<Image>>,
     keys: Res<ButtonInput<KeyCode>>,
@@ -121,7 +125,7 @@ fn editor_ui_system(
 
             ui.collapsing("Color Sampling", |ui| {
                 if ui.button("Sample Colors").clicked() {
-                    sample_colors(&mut puzzle, &sprites, &images, app.blend_scale);
+                    sample_colors(&mut puzzle, &save, &sprites, &images, app.blend_scale);
                 }
                 ui.add(egui::Slider::new(&mut app.blend_scale, 0.1..=0.9));
 
@@ -137,11 +141,11 @@ fn editor_ui_system(
                 }
 
                 if ui.button("Complete").clicked() {
-                    puzzle.complete();
+                    puzzle.complete(&mut save);
                 }
 
                 if ui.button("Decomplete").clicked() {
-                    puzzle.decomplete();
+                    puzzle.decomplete(&mut save);
                 }
 
                 if ui.button("Update").clicked() {
@@ -154,10 +158,6 @@ fn editor_ui_system(
 
                 if ui.button("Update Triangles").clicked() {
                     puzzle.update();
-                }
-
-                if ui.button("Clear Triangles").clicked() {
-                    puzzle.clear_triangles();
                 }
 
                 ui.separator();
@@ -188,12 +188,13 @@ fn editor_ui_system(
 
 fn sample_colors(
     puzzle: &mut Puzzle,
+    save: &SaveData,
     sprites: &Query<(Entity, &Sprite, &Transform)>,
     images: &Res<Assets<Image>>,
     blend_scale: f32,
 ) {
     let triangles: Vec<_> = puzzle
-        .triangles(false)
+        .triangles(&save, false)
         .map(|(a, b, c, _)| (a, b, c))
         .collect();
 

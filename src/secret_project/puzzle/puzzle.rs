@@ -13,7 +13,7 @@ pub struct Puzzle {
     next_vertex_id: usize,
     vertices: HashMap<usize, Vertex>,
     pub solution_edges: Edges,
-    pub game_edges: Edges,
+    // pub game_edges: Edges,
     triangles: HashMap<(usize, usize, usize), Triangle>,
 }
 
@@ -44,7 +44,6 @@ impl Puzzle {
             next_vertex_id: 0,
             vertices: HashMap::new(),
             solution_edges: Edges::default(),
-            game_edges: Edges::default(),
             triangles: HashMap::new(),
         }
     }
@@ -53,12 +52,12 @@ impl Puzzle {
         &self.title
     }
 
-    pub fn complete(&mut self) {
-        self.game_edges.0 = self.solution_edges.0.clone();
+    pub fn complete(&mut self, save: &mut SaveData) {
+        save.edges = self.solution_edges.clone();
     }
 
-    pub fn decomplete(&mut self) {
-        self.game_edges.clear();
+    pub fn decomplete(&mut self, save: &mut SaveData) {
+        save.edges.clear();
     }
 
     pub fn update(&mut self) {
@@ -182,13 +181,6 @@ impl Puzzle {
         // self.update();
     }
 
-    pub fn clear_triangles(&mut self) {
-        self.solution_edges.clear();
-        self.game_edges.clear();
-        self.triangles.clear();
-        self.update();
-    }
-
     pub fn triangulate(&mut self, sel: Res<SelectedVertices>) {
         let ids: Vec<usize> = sel
             .0
@@ -285,18 +277,22 @@ impl Puzzle {
         })
     }
 
-    pub fn game_edges(&self) -> impl Iterator<Item = (&Vertex, &Vertex)> + use<'_> {
-        self.game_edges.0.iter().filter_map(|(a, b)| {
+    pub fn game_edges<'a>(
+        &'a self,
+        save: &'a SaveData,
+    ) -> impl Iterator<Item = (&'a Vertex, &'a Vertex)> + use<'a> {
+        save.edges.0.iter().filter_map(|(a, b)| {
             let v1 = self.vertex_n(*a)?;
             let v2 = self.vertex_n(*b)?;
             Some((v1, v2))
         })
     }
 
-    pub fn triangles(
-        &self,
+    pub fn triangles<'a>(
+        &'a self,
+        save: &'a SaveData,
         is_play: bool,
-    ) -> impl Iterator<Item = (Vec2, Vec2, Vec2, Srgba)> + use<'_> {
+    ) -> impl Iterator<Item = (Vec2, Vec2, Vec2, Srgba)> + use<'a> {
         self.triangles.iter().filter_map(move |((a, b, c), t)| {
             if !self.solution_edges.is_edge(*a, *b)
                 || !self.solution_edges.is_edge(*a, *c)
@@ -306,9 +302,9 @@ impl Puzzle {
             }
 
             if is_play {
-                if !self.game_edges.is_edge(*a, *b)
-                    || !self.game_edges.is_edge(*a, *c)
-                    || !self.game_edges.is_edge(*b, *c)
+                if !save.edges.is_edge(*a, *b)
+                    || !save.edges.is_edge(*a, *c)
+                    || !save.edges.is_edge(*b, *c)
                 {
                     return None;
                 }
@@ -321,11 +317,11 @@ impl Puzzle {
         })
     }
 
-    pub fn remove_vertex(&mut self, id: usize) {
+    pub fn remove_vertex(&mut self, id: usize, save: &mut SaveData) {
         info!("Removing vertex {}", id);
         self.vertices.remove_entry(&id);
         self.solution_edges.remove_vertex(id);
-        self.game_edges.remove_vertex(id);
+        save.edges.remove_vertex(id);
         self.update_triangles();
     }
 
@@ -335,9 +331,9 @@ impl Puzzle {
         self.update_triangles();
     }
 
-    pub fn add_game_edge(&mut self, a: usize, b: usize) {
+    pub fn add_game_edge(&mut self, a: usize, b: usize, save: &mut SaveData) {
         info!("Adding game edge between {} and {}", a, b);
-        self.game_edges.add_edge(a, b);
+        save.edges.add_edge(a, b);
     }
 
     pub fn remove_solution_edge(&mut self, a: usize, b: usize) {
@@ -351,9 +347,9 @@ impl Puzzle {
         self.solution_edges.add_edge(a, b);
     }
 
-    pub fn toggle_edge(&mut self, a: usize, b: usize, is_play: bool) {
+    pub fn toggle_edge(&mut self, save: &mut SaveData, a: usize, b: usize, is_play: bool) {
         if is_play {
-            self.game_edges.toggle(a, b);
+            save.edges.toggle(a, b);
         } else {
             self.solution_edges.toggle(a, b);
             self.update_triangles();
@@ -384,13 +380,13 @@ impl Puzzle {
         }
     }
 
-    pub fn is_complete(&self) -> bool {
-        self.solution_edges.0 == self.game_edges.0
+    pub fn is_complete(&self, save: &SaveData) -> bool {
+        self.solution_edges.0 == save.edges.0
     }
 
-    pub fn progress(&self) -> f32 {
-        let n_sol = self.triangles(false).count();
-        let n_game = self.triangles(true).count();
+    pub fn progress(&self, save: &SaveData) -> f32 {
+        let n_sol = self.triangles(save, false).count();
+        let n_game = self.triangles(save, true).count();
         if n_sol == 0 {
             return 0.0;
         }
@@ -488,6 +484,7 @@ pub fn point_in_triangle(test: Vec2, a: Vec2, b: Vec2, c: Vec2) -> bool {
 pub fn draw_vertices(
     mut painter: ShapePainter,
     puzzle: Single<&Puzzle>,
+    save: Single<&SaveData>,
     camera: Single<&Transform, With<Camera>>,
     state: Res<State<AppState>>,
     keys: Res<ButtonInput<KeyCode>>,
@@ -500,7 +497,7 @@ pub fn draw_vertices(
         return;
     }
 
-    if is_play && puzzle.is_complete() {
+    if is_play && puzzle.is_complete(&save) {
         return;
     }
 
@@ -558,27 +555,11 @@ pub fn draw_cursor_line(
 pub struct PuzzleInstallInfo {
     pub title: String,
     pub short_name: String,
-    pub path: PathBuf,
-    pub is_complete: bool,
 }
 
 impl PuzzleInstallInfo {
-    pub fn new(title: String, short_name: String, path: PathBuf, is_complete: bool) -> Self {
-        Self {
-            title,
-            short_name,
-            path: path.absolutize().unwrap().to_path_buf(),
-            is_complete,
-        }
-    }
-
-    pub fn reference_image_path(&self, name: &str) -> PathBuf {
-        let parent = self
-            .path
-            .parent()
-            .map(|p| p.to_path_buf())
-            .unwrap_or(PathBuf::from("/tmp/"));
-        parent.join(name)
+    pub fn new(title: String, short_name: String) -> Self {
+        Self { title, short_name }
     }
 }
 
@@ -628,7 +609,9 @@ pub fn open_puzzle_by_id(
             _ => continue,
         };
 
-        let (p, images) = match puzzle_from_file(&info.path) {
+        let path = install.puzzle_file(&info.short_name);
+
+        let (p, images) = match puzzle_from_file(&path) {
             Ok((p, images)) => (p, images),
             Err(e) => {
                 let s = format!("{:?}", e);
@@ -641,7 +624,7 @@ pub fn open_puzzle_by_id(
 
         let save_data_path = install.save_data_file(&info.short_name);
 
-        let save_data = match SaveData::from_file(&save_data_path) {
+        let save = match SaveData::from_file(&save_data_path) {
             Ok(p) => p,
             Err(e) => {
                 error!("Failed to load save data: {:?}", e);
@@ -649,7 +632,7 @@ pub fn open_puzzle_by_id(
             }
         };
 
-        puzzle.game_edges = save_data.edges;
+        **save_data = save;
 
         for mut number in &mut number {
             number.0 = format!("#{}", id);
@@ -659,16 +642,17 @@ pub fn open_puzzle_by_id(
 
         commands.write_message(TextMessage::debug(format!(
             "Opened puzzle at \"{}\"",
-            info.path.display()
+            path.display()
         )));
 
         for img in images {
-            let full_path = info.reference_image_path(&img.path);
-            info!("Opening: {:?}, {:?}, {}", img, info, full_path.display());
-            commands.write_message(OpenReferenceImage {
-                path: full_path,
-                pos: img.pos,
-            });
+            warn!("Not loading reference image at {}", img.path);
+            // let full_path = info.reference_image_path(&img.path);
+            // info!("Opening: {:?}, {:?}, {}", img, info, full_path.display());
+            // commands.write_message(OpenReferenceImage {
+            //     path: full_path,
+            //     pos: img.pos,
+            // });
         }
 
         open.0 = Some(id);
@@ -677,10 +661,10 @@ pub fn open_puzzle_by_id(
     }
 }
 
-pub fn generate_mesh(puzzle: &Puzzle, is_play: bool) -> Option<Mesh> {
+pub fn generate_mesh(puzzle: &Puzzle, save: &SaveData, is_play: bool) -> Option<Mesh> {
     let mut builder = MeshMaker::default();
 
-    for (a, b, c, color) in puzzle.triangles(is_play) {
+    for (a, b, c, color) in puzzle.triangles(&save, is_play) {
         builder.set_color(color.into());
         builder.triangle([a, b, c]);
     }
@@ -691,6 +675,7 @@ pub fn generate_mesh(puzzle: &Puzzle, is_play: bool) -> Option<Mesh> {
 pub fn update_puzzle_mesh(
     mut commands: Commands,
     mut puzzles: Query<(Entity, Ref<Puzzle>, Option<&mut Mesh2d>)>,
+    save: Single<Ref<SaveData>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     state: Res<State<AppState>>,
@@ -703,12 +688,12 @@ pub fn update_puzzle_mesh(
     };
 
     for (e, puzzle, mut mesh_comp) in &mut puzzles {
-        if !puzzle.is_changed() && !state.is_changed() {
+        if !puzzle.is_changed() && !state.is_changed() && !save.is_changed() {
             continue;
         }
 
         info!("Mesh update");
-        if let Some(mesh) = generate_mesh(&puzzle, is_play) {
+        if let Some(mesh) = generate_mesh(&puzzle, &save, is_play) {
             if let Some(m) = &mut mesh_comp {
                 **m = Mesh2d(meshes.add(mesh));
             } else {
@@ -726,10 +711,11 @@ pub fn update_puzzle_mesh(
 
 pub fn update_title(
     puzzles: Query<&Puzzle, Changed<Puzzle>>,
+    save: Single<&SaveData>,
     mut text: Single<&mut RevealedText, With<UiTitle>>,
 ) {
     for puzzle in puzzles {
-        let progress = puzzle.progress();
+        let progress = puzzle.progress(&save);
         text.set_progress(progress);
     }
 }

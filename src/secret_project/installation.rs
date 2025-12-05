@@ -103,13 +103,7 @@ pub fn create_puzzle_manifest(install: &Installation) -> Result<PuzzleManifest, 
             .to_string();
         let puzzle_file = install.puzzle_file(&short_name);
         let (puzzle, _) = puzzle_from_file(puzzle_file.clone())?;
-        let is_complete = puzzle.is_complete();
-        let info = PuzzleInstallInfo::new(
-            puzzle.title().to_string(),
-            short_name,
-            puzzle_file,
-            is_complete,
-        );
+        let info = PuzzleInstallInfo::new(puzzle.title().to_string(), short_name);
         info!("Loaded puzzle info: {:?}", info);
         puzzles.insert(id, info);
     }

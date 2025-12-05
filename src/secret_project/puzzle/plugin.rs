@@ -127,23 +127,23 @@ pub fn draw_solution_edges(
     }
 }
 
-fn draw_game_edges(mut painter: ShapePainter, puzzle: Single<&Puzzle>) {
-    if puzzle.is_complete() {
+fn draw_game_edges(mut painter: ShapePainter, puzzle: Single<&Puzzle>, save: Single<&SaveData>) {
+    if puzzle.is_complete(&save) {
         return;
     }
-    for (a, b) in puzzle.game_edges() {
+    for (a, b) in puzzle.game_edges(&save) {
         draw_line(&mut painter, a.pos, b.pos, GAME_EDGES_Z, 3.0, BLACK);
     }
 }
 
 fn autosave_game_progress(
     mut text: MessageWriter<TextMessage>,
-    puzzle: Single<Ref<Puzzle>>,
+    save: Single<Ref<SaveData>>,
     current: Res<CurrentPuzzle>,
     index: Res<PuzzleManifest>,
     install: Res<Installation>,
 ) {
-    if !puzzle.is_changed() {
+    if !save.is_changed() {
         return;
     }
 
@@ -161,9 +161,9 @@ fn autosave_game_progress(
 
     info!("Puzzle has been changed since last autosave");
 
-    let save_data = SaveData::from_puzzle(&puzzle);
+    let save_data: &SaveData = &*save;
 
-    if let Err(e) = save_to_file(&save_data, &path) {
+    if let Err(e) = save_to_file(save_data, &path) {
         error!("Failed to save: {:?}", e);
         text.write(TextMessage::info("Failed to autosave :("));
     } else {
@@ -276,26 +276,27 @@ fn nudge_vertices(
 
 fn detect_win_condition(
     puzzle: Single<Ref<Puzzle>>,
-    current: Res<CurrentPuzzle>,
-    mut index: ResMut<PuzzleManifest>,
+    mut save: Single<Mut<SaveData>>,
     mut state: ResMut<NextState<AppState>>,
 ) {
-    if !puzzle.is_changed() {
+    if !save.is_changed() {
         return;
     }
 
-    let id = match current.0 {
-        Some(id) => id,
-        _ => return,
-    };
+    // TODO stopgap
+    if puzzle.solution_edges.0.is_empty() {
+        info!("Puzzle is empty");
+        return;
+    }
 
-    let info = match index.get_mut(&id) {
-        Some(info) => info,
-        _ => return,
-    };
+    if save.is_complete {
+        info!("Already complete");
+    }
 
-    if !info.is_complete && puzzle.is_complete() {
-        info.is_complete = true;
+    if !save.is_complete && puzzle.is_complete(&save) {
+        save.is_complete = true;
+        save.was_ever_complete = true;
         state.set(AppState::Playing { victory: true });
+        info!("Victory!");
     }
 }

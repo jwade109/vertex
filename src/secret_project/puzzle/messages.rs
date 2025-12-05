@@ -51,18 +51,20 @@ fn on_add_vertex(mut puzzle: Single<&mut Puzzle>, mut messages: MessageReader<Ad
 fn on_delete_vertex(
     mut commands: Commands,
     mut puzzle: Single<&mut Puzzle>,
+    mut save: Single<&mut SaveData>,
     mut messages: MessageReader<DeleteVertex>,
 ) {
     for msg in messages.read() {
         if let Some(v) = puzzle.vertex_n(msg.0) {
             commands.spawn(Ripple::new(v.pos));
         }
-        puzzle.remove_vertex(msg.0);
+        puzzle.remove_vertex(msg.0, &mut save);
     }
 }
 
 fn on_add_edge(
     mut puzzle: Single<&mut Puzzle>,
+    mut save: Single<&mut SaveData>,
     mut messages: MessageReader<AddEdge>,
     state: Res<State<AppState>>,
 ) {
@@ -70,7 +72,7 @@ fn on_add_edge(
         if state.is_editor() {
             puzzle.add_solution_edge(msg.0, msg.1);
         } else {
-            puzzle.add_game_edge(msg.0, msg.1);
+            puzzle.add_game_edge(msg.0, msg.1, &mut save);
         }
     }
 }
@@ -91,12 +93,13 @@ fn on_delete_edge(
 
 fn on_toggle_edge(
     mut puzzle: Single<&mut Puzzle>,
+    mut save: Single<&mut SaveData>,
     mut messages: MessageReader<ToggleEdge>,
     state: Res<State<AppState>>,
 ) {
     let is_play = !state.is_editor();
     for msg in messages.read() {
-        puzzle.toggle_edge(msg.0, msg.1, is_play);
+        puzzle.toggle_edge(&mut save, msg.0, msg.1, is_play);
     }
 }
 

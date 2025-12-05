@@ -2,7 +2,7 @@
 
 use crate::*;
 
-#[derive(Default, Debug, Serialize, Deserialize, Clone)]
+#[derive(Default, Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct Edges(pub HashSet<(usize, usize)>);
 
 pub fn normalize_edge(a: usize, b: usize) -> (usize, usize) {

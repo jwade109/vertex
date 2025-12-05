@@ -18,14 +18,4 @@ impl SaveData {
             Ok(SaveData::default())
         }
     }
-
-    #[deprecated(note = "This doesn't take `was_ever_complete` into account")]
-    pub fn from_puzzle(puzzle: &Puzzle) -> Self {
-        let is_complete = puzzle.is_complete();
-        Self {
-            is_complete,
-            was_ever_complete: is_complete,
-            edges: puzzle.game_edges.clone(),
-        }
-    }
 }
