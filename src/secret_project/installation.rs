@@ -58,6 +58,8 @@ fn create_settings_file(install: &Installation) -> Result<(), VertexError> {
 }
 
 pub fn initialize_install_directory(install: &Installation) -> Result<(), VertexError> {
+    info!("Creating install directory at {}", install.0.display());
+
     for dir in [install.puzzles(), install.save_data()] {
         if !std::fs::exists(&dir)? {
             match std::fs::create_dir_all(&dir) {
@@ -126,7 +128,10 @@ pub fn install_puzzle_file(
 ) -> Result<u64, VertexError> {
     let puzzle_path = install.puzzle_file(short_name);
     let url = puzzle_file_url(short_name);
-    std::fs::create_dir(install.puzzle_dir(short_name))?;
+    let dirname = install.puzzle_dir(short_name);
+    if !std::fs::exists(&dirname)? {
+        std::fs::create_dir(dirname)?;
+    }
     download_file(&url, &puzzle_path, overwrite)
 }
 

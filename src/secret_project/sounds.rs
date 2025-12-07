@@ -70,6 +70,6 @@ fn add_new_sounds(
 
 fn debug_info_sounds(sounds: Query<&Name, With<PlaybackSettings>>) {
     for sound in sounds.iter().enumerate() {
-        info!("{:?}", sound);
+        debug!("{:?}", sound);
     }
 }

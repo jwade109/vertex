@@ -10,7 +10,8 @@ impl Plugin for NetworkPlugin {
 }
 
 pub fn download_file(url: &str, path: &Path, overwrite: bool) -> Result<u64, VertexError> {
-    if std::fs::exists(path)? {
+    let exists = std::fs::exists(path)?;
+    if exists {
         if overwrite {
             info!("Overwriting {} to {}", url, path.display());
         } else {
@@ -21,6 +22,9 @@ pub fn download_file(url: &str, path: &Path, overwrite: bool) -> Result<u64, Ver
         info!("Downloading {} to {}", url, path.display());
     }
     let mut resp = reqwest::blocking::get(url)?.error_for_status()?;
+    if exists {
+        std::fs::remove_file(path)?;
+    }
     let mut file = std::fs::File::create(path)?;
     Ok(std::io::copy(&mut resp, &mut file)?)
 }
@@ -59,13 +63,26 @@ impl From<&str> for VertexError {
 }
 
 fn do_network_fetch(install: Installation) -> Result<(), VertexError> {
+    warn!("START");
+
     // always keep this updated
     install_remote_manifest(&install, true)?;
 
-    install_puzzle_file(&install, "rose", false)?;
-    install_puzzle_file(&install, "doggo", false)?;
-    install_puzzle_file(&install, "rubik", false)?;
-    install_puzzle_file(&install, "potato", false)?;
+    let manifest = NetworkManifest::from_file(&install.network_manifest())?;
+
+    for puzzle in manifest.puzzles {
+        info!("Installing {}", puzzle.short_name);
+        match install_puzzle_file(&install, &puzzle.short_name, false) {
+            Ok(_) => {
+                info!("Success!");
+            }
+            Err(e) => {
+                error!("Failed to install: {:?}", e);
+            }
+        }
+    }
+
+    warn!("FINISHED");
 
     Ok(())
 }

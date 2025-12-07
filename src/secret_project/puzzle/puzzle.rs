@@ -1,9 +1,6 @@
 use crate::secret_project::*;
-use bevy::camera::visibility::NoFrustumCulling;
 use kmeans_colors::{get_kmeans, Kmeans};
 use palette::Srgb;
-use path_absolutize::*;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::*;
 
@@ -394,12 +391,6 @@ impl Puzzle {
     }
 }
 
-#[derive(Deserialize, Serialize, Debug)]
-pub struct ReferenceImage {
-    pub path: String,
-    pub pos: Vec2,
-}
-
 #[derive(Deserialize, Serialize, Default, Debug)]
 pub struct PuzzleFileStorage {
     pub title: String,
@@ -581,6 +572,7 @@ pub fn save_to_file<T: Serialize>(val: &T, path: &Path) -> Result<(), VertexErro
 }
 
 pub fn load_from_file<T: for<'a> Deserialize<'a>>(path: &Path) -> Result<T, VertexError> {
+    info!("Loading {}", path.display());
     let s = std::fs::read_to_string(path)?;
     let val: T = serde_yaml::from_str(&s)?;
     Ok(val)

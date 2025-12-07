@@ -57,7 +57,13 @@ fn startup(
 
     let args: Vec<String> = std::env::args().collect();
 
-    let install_dir = args.get(1).expect("Requires install directory via CLI");
+    let home_dir = std::env::home_dir().expect("Expected home directory");
+    let default = home_dir.join(".vertex_install");
+
+    let install_dir = match args.get(1) {
+        Some(s) => PathBuf::from(s),
+        None => default,
+    };
 
     let install = Installation::initialize(install_dir).expect("Failed to initialize installation");
 
@@ -68,15 +74,7 @@ fn startup(
     commands.spawn(SaveData::default());
     commands.spawn(Puzzle::empty("Random"));
 
-    let manifest = match create_puzzle_manifest(&install) {
-        Ok(manifest) => manifest,
-        Err(e) => {
-            error!("Failed to load manifest: {:?}", e);
-            PuzzleManifest::default()
-        }
-    };
-
-    commands.insert_resource(manifest);
+    commands.insert_resource(PuzzleManifest::default());
 
     loading.set(AppState::Menu);
 }

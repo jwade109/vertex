@@ -204,7 +204,6 @@ fn handle_ui_messages(
     mut commands: Commands,
     mut state: ResMut<NextState<AppState>>,
     mut messages: MessageReader<UiMessage>,
-    mut puzzle: Single<&mut Puzzle>,
     mut save: Single<&mut SaveData>,
     mut solver: ResMut<Autosolver>,
     current: Res<CurrentPuzzle>,
