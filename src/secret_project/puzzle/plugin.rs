@@ -74,7 +74,6 @@ fn update_cursor_vertex_info(
         if let Some((a, b)) = vinfo.pair() {
             if a != b {
                 commands.write_message(ToggleEdge(a, b));
-                commands.write_message(SoundEffect::UiTrillDown);
             }
         }
         vinfo.clicked = None;

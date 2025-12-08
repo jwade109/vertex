@@ -26,12 +26,6 @@ impl Plugin for CursorPlugin {
                 ),
             )
             .add_systems(
-                OnEnter(AppState::Editing {
-                    mode: EditorMode::Select,
-                }),
-                on_select_enter,
-            )
-            .add_systems(
                 OnExit(AppState::Editing {
                     mode: EditorMode::Select,
                 }),
@@ -69,10 +63,6 @@ pub fn draw_mouse_cursor(
 
 #[derive(Resource, Default, Deref, DerefMut, Debug)]
 pub struct SelectedVertices(pub HashSet<usize>);
-
-pub fn on_select_enter() {
-    // TODO
-}
 
 pub fn draw_selected_vertices(
     mut painter: ShapePainter,

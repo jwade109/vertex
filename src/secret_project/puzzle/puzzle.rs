@@ -317,7 +317,7 @@ impl Puzzle {
         save.edges.add_edge(a, b);
     }
 
-    pub fn remove_solution_edge(&mut self, a: usize, b: usize) {
+    pub fn remove_edge(&mut self, a: usize, b: usize) {
         info!("Adding solution edge between {} and {}", a, b);
         self.solution_edges.remove_edge(a, b);
         self.update_triangles();

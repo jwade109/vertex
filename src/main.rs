@@ -31,7 +31,6 @@ fn main() {
         .add_systems(
             Update,
             (
-                on_input_tick,
                 draw_cursor_line,
                 open_puzzle_by_id,
                 update_puzzle_mesh,
@@ -85,43 +84,4 @@ fn enable_debug_view(state: Res<State<AppState>>, mut fps: ResMut<FpsOverlayConf
     fps.enabled = state.is_editor();
     fps.text_color = Color::BLACK;
     fps.frame_time_graph_config.enabled = state.is_editor();
-}
-
-fn on_input_tick(
-    mut commands: Commands,
-    keys: Res<ButtonInput<KeyCode>>,
-    window: Single<&Window, With<PrimaryWindow>>,
-    mut cursor: ResMut<CursorState>,
-    mut puzzle: Single<&mut Puzzle>,
-    camera: Single<(&Camera, &GlobalTransform)>,
-    app: Res<Settings>,
-) {
-    let (camera, camera_transform) = *camera;
-
-    if let Some(world_position) = window
-        .cursor_position()
-        .and_then(|cursor| camera.viewport_to_world(camera_transform, cursor).ok())
-        .map(|ray| ray.origin.truncate())
-    {
-        cursor.mouse_pos = Some(world_position);
-    } else {
-        cursor.mouse_pos = None;
-    }
-
-    // keyboard presses
-    if keys.just_pressed(KeyCode::KeyQ) {
-        if keys.pressed(KeyCode::ControlLeft) {
-            commands.write_message(Quantize(app.n_colors));
-            commands.write_message(SoundEffect::UiThreePop);
-        } else {
-            if let Some(p) = cursor.get() {
-                puzzle.add_point(p);
-                commands.write_message(SoundEffect::LightPop);
-            }
-        }
-    }
-
-    if keys.just_pressed(KeyCode::Escape) {
-        commands.write_message(AppExit::Success);
-    }
 }

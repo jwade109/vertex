@@ -85,7 +85,7 @@ fn on_delete_edge(
 ) {
     for msg in messages.read() {
         if state.is_editor() {
-            puzzle.remove_solution_edge(msg.0, msg.1);
+            puzzle.remove_edge(msg.0, msg.1);
         } else {
             save.edges.remove_edge(msg.0, msg.1);
         }
