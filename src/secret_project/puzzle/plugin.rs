@@ -127,7 +127,7 @@ pub fn draw_solution_edges(
     }
 }
 
-fn draw_game_edges(mut painter: ShapePainter, puzzle: Single<&Puzzle>, save: Single<&SaveData>) {
+fn draw_game_edges(mut painter: ShapePainter, puzzle: Single<&Puzzle>, save: Res<SaveData>) {
     if puzzle.is_complete(&save) {
         return;
     }
@@ -138,9 +138,9 @@ fn draw_game_edges(mut painter: ShapePainter, puzzle: Single<&Puzzle>, save: Sin
 
 fn autosave_game_progress(
     mut text: MessageWriter<TextMessage>,
-    save: Single<Ref<SaveData>>,
+    save: Res<SaveData>,
     current: Res<CurrentPuzzle>,
-    index: Res<PuzzleManifest>,
+    manifest: Res<Manifest>,
     install: Res<Installation>,
 ) {
     if !save.is_changed() {
@@ -152,7 +152,7 @@ fn autosave_game_progress(
         _ => return,
     };
 
-    let info = match index.get(&id) {
+    let info = match manifest.get(id) {
         Some(info) => info,
         _ => return,
     };
@@ -276,7 +276,7 @@ fn nudge_vertices(
 
 fn detect_win_condition(
     puzzle: Single<Ref<Puzzle>>,
-    mut save: Single<Mut<SaveData>>,
+    mut save: ResMut<SaveData>,
     mut state: ResMut<NextState<AppState>>,
 ) {
     if !save.is_changed() {

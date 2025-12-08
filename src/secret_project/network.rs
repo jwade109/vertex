@@ -63,12 +63,10 @@ impl From<&str> for VertexError {
 }
 
 fn do_network_fetch(install: Installation) -> Result<(), VertexError> {
-    warn!("START");
-
     // always keep this updated
     install_remote_manifest(&install, true)?;
 
-    let manifest = NetworkManifest::from_file(&install.network_manifest())?;
+    let manifest = Manifest::from_file(&install.network_manifest())?;
 
     for puzzle in manifest.puzzles {
         info!("Installing {}", puzzle.short_name);
@@ -81,8 +79,6 @@ fn do_network_fetch(install: Installation) -> Result<(), VertexError> {
             }
         }
     }
-
-    warn!("FINISHED");
 
     Ok(())
 }
@@ -108,6 +104,7 @@ struct NetworkWorker {
 fn spawn_network_request(
     mut commands: Commands,
     mut msg: MessageReader<NetworkFetch>,
+    tasks: Query<&NetworkWorker>,
     install: Res<Installation>,
 ) {
     if msg.is_empty() {
@@ -115,6 +112,11 @@ fn spawn_network_request(
     }
 
     for _ in msg.read() {}
+
+    if !tasks.is_empty() {
+        warn!("Network request already in progress");
+        return;
+    }
 
     let install = install.clone();
 

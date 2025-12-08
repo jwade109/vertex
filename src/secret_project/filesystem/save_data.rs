@@ -1,7 +1,8 @@
 use crate::secret_project::*;
 
-#[derive(Component, Debug, Default, Deserialize, Serialize)]
+#[derive(Resource, Debug, Default, Deserialize, Serialize)]
 pub struct SaveData {
+    pub revealed_title: String,
     pub is_complete: bool,
     pub was_ever_complete: bool,
     pub edges: Edges,

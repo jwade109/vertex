@@ -36,7 +36,7 @@ fn do_autosolver(
     mut commands: Commands,
     mut solver: ResMut<Autosolver>,
     puzzle: Single<&Puzzle>,
-    save: Single<&SaveData>,
+    save: Res<SaveData>,
     time: Res<Time<Fixed>>,
 ) {
     if !solver.enabled {

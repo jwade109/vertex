@@ -71,10 +71,12 @@ fn startup(
     commands.insert_resource(install.clone());
     commands.insert_resource(ClearColor(Srgba::new(0.9, 0.9, 0.9, 1.0).into()));
 
-    commands.spawn(SaveData::default());
-    commands.spawn(Puzzle::empty("Random"));
+    commands.insert_resource(SaveData::default());
+    commands.spawn(Puzzle::default());
 
-    commands.insert_resource(PuzzleManifest::default());
+    commands.insert_resource(
+        Manifest::from_file(&install.network_manifest()).unwrap_or(Manifest::default()),
+    );
 
     loading.set(AppState::Menu);
 }

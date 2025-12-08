@@ -4,13 +4,11 @@ use palette::Srgb;
 use std::collections::HashMap;
 use std::path::*;
 
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct Puzzle {
-    title: String,
     next_vertex_id: usize,
     vertices: HashMap<usize, Vertex>,
     pub solution_edges: Edges,
-    // pub game_edges: Edges,
     triangles: HashMap<(usize, usize, usize), Triangle>,
 }
 
@@ -35,20 +33,6 @@ fn rgb_to_srgba(color: Srgb) -> Srgba {
 }
 
 impl Puzzle {
-    pub fn empty(title: impl Into<String>) -> Self {
-        Self {
-            title: title.into(),
-            next_vertex_id: 0,
-            vertices: HashMap::new(),
-            solution_edges: Edges::default(),
-            triangles: HashMap::new(),
-        }
-    }
-
-    pub fn title(&self) -> &str {
-        &self.title
-    }
-
     pub fn complete(&mut self, save: &mut SaveData) {
         save.edges = self.solution_edges.clone();
     }
@@ -339,11 +323,6 @@ impl Puzzle {
         self.update_triangles();
     }
 
-    pub fn remove_game_edge(&mut self, a: usize, b: usize) {
-        info!("Removing game edge between {} and {}", a, b);
-        self.solution_edges.add_edge(a, b);
-    }
-
     pub fn toggle_edge(&mut self, save: &mut SaveData, a: usize, b: usize, is_play: bool) {
         if is_play {
             save.edges.toggle(a, b);
@@ -393,7 +372,6 @@ impl Puzzle {
 
 #[derive(Deserialize, Serialize, Default, Debug)]
 pub struct PuzzleFileStorage {
-    pub title: String,
     pub vertices: HashMap<usize, Vec2>,
     pub edges: Vec<(usize, usize)>,
     pub triangles: Vec<(usize, usize, usize, Srgba)>,
@@ -401,7 +379,7 @@ pub struct PuzzleFileStorage {
 }
 
 pub fn repr_to_puzzle(value: PuzzleFileStorage) -> (Puzzle, Vec<ReferenceImage>) {
-    let mut puzzle = Puzzle::empty(value.title);
+    let mut puzzle = Puzzle::default();
     let mut max_id = 0;
     puzzle.vertices = value
         .vertices
@@ -427,7 +405,6 @@ pub fn repr_to_puzzle(value: PuzzleFileStorage) -> (Puzzle, Vec<ReferenceImage>)
 
 fn puzzle_to_repr(value: &Puzzle, images: Vec<ReferenceImage>) -> PuzzleFileStorage {
     let mut repr = PuzzleFileStorage::default();
-    repr.title = value.title().to_string();
     for (id, p) in &value.vertices {
         repr.vertices.insert(*id, p.pos);
     }
@@ -475,7 +452,7 @@ pub fn point_in_triangle(test: Vec2, a: Vec2, b: Vec2, c: Vec2) -> bool {
 pub fn draw_vertices(
     mut painter: ShapePainter,
     puzzle: Single<&Puzzle>,
-    save: Single<&SaveData>,
+    save: Res<SaveData>,
     camera: Single<&Transform, With<Camera>>,
     state: Res<State<AppState>>,
     keys: Res<ButtonInput<KeyCode>>,
@@ -542,30 +519,6 @@ pub fn draw_cursor_line(
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct PuzzleInstallInfo {
-    pub title: String,
-    pub short_name: String,
-}
-
-impl PuzzleInstallInfo {
-    pub fn new(title: String, short_name: String) -> Self {
-        Self { title, short_name }
-    }
-}
-
-#[derive(Resource, Debug, Default, Deref, DerefMut, Clone)]
-pub struct PuzzleManifest(HashMap<usize, PuzzleInstallInfo>);
-
-impl PuzzleManifest {
-    pub fn sorted_list<'a>(&'a self) -> Vec<(usize, &'a PuzzleInstallInfo)> {
-        let mut list: Vec<(usize, &PuzzleInstallInfo)> =
-            self.0.iter().map(|(id, info)| (*id, info)).collect();
-        list.sort_by_key(|e| e.0);
-        list
-    }
-}
-
 pub fn save_to_file<T: Serialize>(val: &T, path: &Path) -> Result<(), VertexError> {
     let s = serde_yaml::to_string(&val)?;
     Ok(std::fs::write(path, s)?)
@@ -580,11 +533,11 @@ pub fn load_from_file<T: for<'a> Deserialize<'a>>(path: &Path) -> Result<T, Vert
 
 pub fn open_puzzle_by_id(
     mut commands: Commands,
-    list: Res<PuzzleManifest>,
+    manifest: Res<Manifest>,
     install: Res<Installation>,
     all_windows: Query<Entity, With<RefImageWindow>>,
     mut puzzle: Single<&mut Puzzle>,
-    mut save_data: Single<&mut SaveData>,
+    mut save_data: ResMut<SaveData>,
     mut msg: MessageReader<OpenPuzzleById>,
     mut open: ResMut<CurrentPuzzle>,
     mut title: Single<&mut RevealedText, With<UiTitle>>,
@@ -596,7 +549,7 @@ pub fn open_puzzle_by_id(
         }
         let id = msg.0;
 
-        let info = match list.get(&id) {
+        let info = match manifest.get(id) {
             Some(info) => info,
             _ => continue,
         };
@@ -624,13 +577,13 @@ pub fn open_puzzle_by_id(
             }
         };
 
-        **save_data = save;
+        title.reset(&save.revealed_title);
+
+        *save_data = save;
 
         for mut number in &mut number {
             number.0 = format!("#{}", id);
         }
-
-        title.reset(puzzle.title());
 
         commands.write_message(TextMessage::debug(format!(
             "Opened puzzle at \"{}\"",
@@ -667,7 +620,7 @@ pub fn generate_mesh(puzzle: &Puzzle, save: &SaveData, is_play: bool) -> Option<
 pub fn update_puzzle_mesh(
     mut commands: Commands,
     mut puzzles: Query<(Entity, Ref<Puzzle>, Option<&mut Mesh2d>)>,
-    save: Single<Ref<SaveData>>,
+    save: Res<SaveData>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     state: Res<State<AppState>>,
@@ -703,7 +656,7 @@ pub fn update_puzzle_mesh(
 
 pub fn update_title(
     puzzles: Query<&Puzzle, Changed<Puzzle>>,
-    save: Single<&SaveData>,
+    save: Res<SaveData>,
     mut text: Single<&mut RevealedText, With<UiTitle>>,
 ) {
     for puzzle in puzzles {

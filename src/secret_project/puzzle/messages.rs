@@ -51,7 +51,7 @@ fn on_add_vertex(mut puzzle: Single<&mut Puzzle>, mut messages: MessageReader<Ad
 fn on_delete_vertex(
     mut commands: Commands,
     mut puzzle: Single<&mut Puzzle>,
-    mut save: Single<&mut SaveData>,
+    mut save: ResMut<SaveData>,
     mut messages: MessageReader<DeleteVertex>,
 ) {
     for msg in messages.read() {
@@ -64,7 +64,7 @@ fn on_delete_vertex(
 
 fn on_add_edge(
     mut puzzle: Single<&mut Puzzle>,
-    mut save: Single<&mut SaveData>,
+    mut save: ResMut<SaveData>,
     mut messages: MessageReader<AddEdge>,
     state: Res<State<AppState>>,
 ) {
@@ -80,20 +80,21 @@ fn on_add_edge(
 fn on_delete_edge(
     mut puzzle: Single<&mut Puzzle>,
     mut messages: MessageReader<DeleteEdge>,
+    mut save: ResMut<SaveData>,
     state: Res<State<AppState>>,
 ) {
     for msg in messages.read() {
         if state.is_editor() {
             puzzle.remove_solution_edge(msg.0, msg.1);
         } else {
-            puzzle.remove_game_edge(msg.0, msg.1);
+            save.edges.remove_edge(msg.0, msg.1);
         }
     }
 }
 
 fn on_toggle_edge(
     mut puzzle: Single<&mut Puzzle>,
-    mut save: Single<&mut SaveData>,
+    mut save: ResMut<SaveData>,
     mut messages: MessageReader<ToggleEdge>,
     state: Res<State<AppState>>,
 ) {

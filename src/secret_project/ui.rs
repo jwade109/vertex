@@ -204,7 +204,7 @@ fn handle_ui_messages(
     mut commands: Commands,
     mut state: ResMut<NextState<AppState>>,
     mut messages: MessageReader<UiMessage>,
-    mut save: Single<&mut SaveData>,
+    mut save: ResMut<SaveData>,
     mut solver: ResMut<Autosolver>,
     current: Res<CurrentPuzzle>,
 ) {
@@ -407,7 +407,7 @@ fn standard_menu() -> impl Bundle {
     )
 }
 
-fn main_menu(commands: &mut Commands, font: &TextFont, index: &PuzzleManifest) {
+fn main_menu(commands: &mut Commands, font: &TextFont, manifest: &Manifest) {
     let header = big_text_node("Secret Project", font);
 
     let root = commands
@@ -427,7 +427,7 @@ fn main_menu(commands: &mut Commands, font: &TextFont, index: &PuzzleManifest) {
         .spawn(standard_menu())
         .with_children(|parent| {
             parent.spawn(header);
-            for (id, info) in index.sorted_list() {
+            for (id, info) in manifest.puzzles.iter().enumerate() {
                 let s = format!("#{}: {}", id, info.title);
                 let b = make_button(s, font, UiMessage::OpenPuzzle(id));
                 parent.spawn(b);
@@ -466,11 +466,11 @@ fn despawn_playing_menu(mut commands: Commands, query: Query<Entity, With<Playin
 fn spawn_main_menu(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    index: Res<PuzzleManifest>,
+    manifest: Res<Manifest>,
 ) {
     let font = asset_server.load("EBGaramond-Medium.ttf");
     let font = TextFont::from_font_size(25.0).with_font(font);
-    main_menu(&mut commands, &font, &index);
+    main_menu(&mut commands, &font, &manifest);
 }
 
 fn despawn_main_menu(mut commands: Commands, query: Query<Entity, With<MenuRoot>>) {
@@ -530,7 +530,7 @@ fn despawn_victory_screen(mut commands: Commands, query: Query<Entity, With<Vict
     }
 }
 
-fn network_menu(commands: &mut Commands, font: &TextFont, manifest: &PuzzleManifest) {
+fn network_menu(commands: &mut Commands, font: &TextFont, manifest: &Manifest) {
     let header = big_text_node("Download Puzzles", font);
 
     let root = commands
@@ -563,8 +563,8 @@ fn network_menu(commands: &mut Commands, font: &TextFont, manifest: &PuzzleManif
                 parent.spawn(make_button(s, font, msg));
             }
 
-            for info in manifest.sorted_list() {
-                parent.spawn(make_install_thing(info.1.short_name.clone(), font));
+            for info in &manifest.puzzles {
+                parent.spawn(make_install_thing(info.short_name.clone(), font));
             }
         })
         .id();
@@ -594,7 +594,7 @@ fn progress_bar() -> impl Bundle {
 fn spawn_network_menu(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    manifest: Res<PuzzleManifest>,
+    manifest: Res<Manifest>,
 ) {
     let font = asset_server.load("EBGaramond-Medium.ttf");
     let font = TextFont::from_font_size(25.0).with_font(font);

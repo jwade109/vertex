@@ -90,29 +90,6 @@ pub fn initialize_install_directory(install: &Installation) -> Result<(), Vertex
     Ok(())
 }
 
-pub fn create_puzzle_manifest(install: &Installation) -> Result<PuzzleManifest, VertexError> {
-    let paths = std::fs::read_dir(install.puzzles())?;
-    let mut puzzles = PuzzleManifest::default();
-
-    for (id, path) in paths.enumerate() {
-        let path = path?;
-        let path = path.path();
-        let short_name = path
-            .file_stem()
-            .ok_or("No file stem!")?
-            .to_str()
-            .ok_or("File stem is not convertible to string!")?
-            .to_string();
-        let puzzle_file = install.puzzle_file(&short_name);
-        let (puzzle, _) = puzzle_from_file(puzzle_file.clone())?;
-        let info = PuzzleInstallInfo::new(puzzle.title().to_string(), short_name);
-        info!("Loaded puzzle info: {:?}", info);
-        puzzles.insert(id, info);
-    }
-
-    Ok(puzzles)
-}
-
 pub fn install_remote_manifest(
     install: &Installation,
     overwrite: bool,

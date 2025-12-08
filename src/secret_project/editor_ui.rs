@@ -26,7 +26,7 @@ fn save_puzzle_system(
     windows: Query<(&RefImagePath, &RefImageWindow)>,
     mut save: MessageReader<SavePuzzle>,
     current: Res<CurrentPuzzle>,
-    puzzle_list: Res<PuzzleManifest>,
+    manifest: Res<Manifest>,
     install: Res<Installation>,
 ) {
     if save.is_empty() {
@@ -42,7 +42,7 @@ fn save_puzzle_system(
         _ => return,
     };
 
-    let info = match puzzle_list.get(&id) {
+    let info = match manifest.get(id) {
         Some(info) => info,
         _ => return,
     };
@@ -82,12 +82,12 @@ fn editor_ui_system(
     mut commands: Commands,
     mut app: ResMut<Settings>,
     mut puzzle: Single<&mut Puzzle>,
-    mut save: Single<&mut SaveData>,
+    mut save: ResMut<SaveData>,
     sprites: Query<(Entity, &Sprite, &Transform)>,
     images: Res<Assets<Image>>,
     keys: Res<ButtonInput<KeyCode>>,
     sel: Res<SelectedVertices>,
-    puzzle_list: Res<PuzzleManifest>,
+    puzzle_list: Res<Manifest>,
     mut mouse: ResMut<CursorState>,
     camera: Single<&Transform, With<Camera>>,
 ) {
@@ -115,7 +115,7 @@ fn editor_ui_system(
             ui.label(format!("{:#?}", *camera));
 
             ui.collapsing("Puzzles", |ui| {
-                for (id, info) in puzzle_list.sorted_list() {
+                for (id, info) in puzzle_list.puzzles.iter().enumerate() {
                     if ui.button(&info.title).clicked() {
                         info!("Opening a puzzle: {:?}", info);
                         commands.write_message(OpenPuzzleById(id));

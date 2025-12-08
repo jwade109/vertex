@@ -22,6 +22,7 @@ impl Plugin for CursorPlugin {
                     do_select.run_if(in_state(AppState::Editing {
                         mode: EditorMode::Select,
                     })),
+                    delete_edges_on_right_click.run_if(is_playing),
                 ),
             )
             .add_systems(
@@ -206,6 +207,28 @@ fn do_select(
                     sel.0.insert(*vid);
                 }
             }
+        }
+    }
+}
+
+fn delete_edges_on_right_click(
+    mouse: Res<ButtonInput<MouseButton>>,
+    cursor: Res<CursorVertexInfo>,
+    save: Res<SaveData>,
+    mut delete: MessageWriter<DeleteEdge>,
+) {
+    if !mouse.just_pressed(MouseButton::Right) {
+        return;
+    }
+
+    let id = match cursor.hovered {
+        Some(h) => h,
+        None => return,
+    };
+
+    for edge in &save.edges.0 {
+        if edge.0 == id || edge.1 == id {
+            delete.write(DeleteEdge(edge.0, edge.1));
         }
     }
 }
