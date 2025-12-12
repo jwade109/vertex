@@ -27,7 +27,7 @@ fn main() {
         .add_plugins(AutoSolverPlugin)
         .add_plugins(ConfettiPlugin)
         .add_plugins(NetworkPlugin)
-        .add_systems(Startup, startup)
+        .add_systems(Startup, startup.in_set(MainStartup))
         .add_systems(
             Update,
             (
@@ -77,7 +77,9 @@ fn startup(
         Manifest::from_file(&install.network_manifest()).unwrap_or(Manifest::default()),
     );
 
-    loading.set(AppState::Menu);
+    commands.write_message(NetworkFetch);
+
+    loading.set(AppState::Loading);
 }
 
 fn enable_debug_view(state: Res<State<AppState>>, mut fps: ResMut<FpsOverlayConfig>) {

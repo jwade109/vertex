@@ -9,9 +9,6 @@ impl Plugin for UiPlugin {
         app.add_message::<UiMessage>();
         app.add_systems(Update, (button_interactions, handle_ui_messages));
 
-        app.add_systems(OnEnter(AppState::Network), spawn_network_menu);
-        app.add_systems(OnExit(AppState::Network), despawn_network_menu);
-
         // editor/playing menu
         app.add_systems(OnEnter(InEditorOrPlaying), spawn_playing_menu);
         app.add_systems(OnExit(InEditorOrPlaying), despawn_playing_menu);
@@ -23,6 +20,17 @@ impl Plugin for UiPlugin {
         // victory screen
         app.add_systems(OnEnter(VictoryScreen), spawn_victory_screen);
         app.add_systems(OnExit(VictoryScreen), despawn_victory_screen);
+
+        // loading
+        app.add_systems(OnEnter(AppState::Loading), spawn_loading_screen);
+        app.add_systems(OnExit(AppState::Loading), begin_loading_fade_out);
+
+        app.add_systems(Update, leave_loading_on_u.run_if(on_loading_screen));
+        app.add_systems(Update, send_text_on_key_r.run_if(on_loading_screen));
+        app.add_systems(Update, process_loading_fade_out);
+        app.add_systems(Update, handle_loading_messages);
+
+        app.add_message::<LoadingMessage>();
     }
 }
 
@@ -33,8 +41,6 @@ pub enum UiMessage {
     Save,
     Load,
     Menu,
-    Network,
-    NetworkFetch,
     Reset,
     Play,
     CloseMenu,
@@ -252,12 +258,6 @@ fn handle_ui_messages(
             UiMessage::ExitToDesktop => {
                 commands.write_message(AppExit::Success);
             }
-            UiMessage::Network => {
-                state.set(AppState::Network);
-            }
-            UiMessage::NetworkFetch => {
-                commands.write_message(NetworkFetch);
-            }
             UiMessage::DespawnEntity(e) => {
                 commands.entity(*e).despawn();
             }
@@ -435,8 +435,6 @@ fn main_menu(commands: &mut Commands, font: &TextFont, manifest: &Manifest) {
 
             parent.spawn(vspace(30.0));
 
-            parent.spawn(make_button("Download Puzzles", font, UiMessage::Network));
-
             parent.spawn(make_button(
                 "Exit to Desktop",
                 font,
@@ -530,79 +528,100 @@ fn despawn_victory_screen(mut commands: Commands, query: Query<Entity, With<Vict
     }
 }
 
-fn network_menu(commands: &mut Commands, font: &TextFont, manifest: &Manifest) {
-    let header = big_text_node("Download Puzzles", font);
-
-    let root = commands
-        .spawn((
-            NetworkRoot,
-            Node {
-                width: percent(100.0),
-                height: percent(100.0),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-        ))
-        .id();
-
-    let w = commands
-        .spawn(standard_menu())
-        .with_children(|parent| {
-            parent.spawn(header);
-
-            let buttons = [
-                ("Check for New Puzzles", UiMessage::NetworkFetch),
-                ("Return to Main Menu", UiMessage::Menu),
-            ];
-
-            parent.spawn(progress_bar());
-            parent.spawn(vspace(20.0));
-
-            for (s, msg) in buttons {
-                parent.spawn(make_button(s, font, msg));
-            }
-
-            for info in &manifest.puzzles {
-                parent.spawn(make_install_thing(info.short_name.clone(), font));
-            }
-        })
-        .id();
-
-    commands.entity(root).add_child(w);
-}
-
-fn progress_bar() -> impl Bundle {
-    (
-        Node {
-            width: percent(100.0),
-            height: px(20.0),
-            ..default()
-        },
-        BackgroundColor(GRAY.into()),
-        children![(
-            Node {
-                width: percent(50.0),
-                height: px(20.0),
-                ..default()
-            },
-            BackgroundColor(ORANGE.into()),
-        )],
-    )
-}
-
-fn spawn_network_menu(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    manifest: Res<Manifest>,
-) {
-    let font = asset_server.load("EBGaramond-Medium.ttf");
-    let font = TextFont::from_font_size(25.0).with_font(font);
-    network_menu(&mut commands, &font, &manifest);
-}
-
 fn despawn_network_menu(mut commands: Commands, query: Query<Entity, With<NetworkRoot>>) {
     for e in query {
         commands.entity(e).despawn();
+    }
+}
+
+#[derive(Component)]
+pub struct LoadingRoot;
+
+#[derive(Component)]
+pub struct LoadingFadeOut;
+
+#[derive(Component)]
+pub struct LoadingUpdate;
+
+fn spawn_loading_screen(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let font = asset_server.load("EBGaramond-Medium.ttf");
+    let font = TextFont::from_font_size(48.0).with_font(font);
+
+    let root = (
+        LoadingRoot,
+        ZIndex(2),
+        Node {
+            width: percent(100.0),
+            height: percent(100.0),
+            ..default()
+        },
+        BackgroundColor(Color::BLACK),
+        children![(
+            Node {
+                width: percent(100.0),
+                justify_content: JustifyContent::Center,
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            children![(
+                Text::new("Loading..."),
+                font.clone(),
+                Node::default(),
+                LoadingUpdate
+            )]
+        )],
+    );
+
+    commands.spawn(root);
+}
+
+fn begin_loading_fade_out(
+    mut commands: Commands,
+    query: Query<Entity, (With<LoadingRoot>, Without<LoadingFadeOut>)>,
+) {
+    for e in query {
+        commands.entity(e).despawn();
+    }
+}
+
+fn process_loading_fade_out(
+    mut commands: Commands,
+    node: Query<(Entity, &mut BackgroundColor), With<LoadingFadeOut>>,
+) {
+    for (e, mut n) in node {
+        let c = n.0.to_linear();
+        let new_c = c.with_alpha(c.alpha - 0.01);
+        n.0 = new_c.into();
+        if new_c.alpha < 0.0 {
+            commands.entity(e).despawn();
+        }
+    }
+}
+
+fn leave_loading_on_u(mut state: ResMut<NextState<AppState>>, keys: Res<ButtonInput<KeyCode>>) {
+    if keys.just_pressed(KeyCode::KeyU) {
+        state.set(AppState::Menu);
+    }
+}
+
+fn send_text_on_key_r(mut commands: Commands, keys: Res<ButtonInput<KeyCode>>) {
+    if keys.just_pressed(KeyCode::KeyR) {
+        let s = format!("{:?}", std::time::Instant::now());
+        commands.write_message(LoadingMessage(s));
+    }
+}
+
+#[derive(Message, Debug, Clone)]
+pub struct LoadingMessage(pub String);
+
+fn handle_loading_messages(
+    mut messages: MessageReader<LoadingMessage>,
+    mut query: Query<&mut Text, With<LoadingUpdate>>,
+) {
+    for msg in messages.read() {
+        for mut t in &mut query {
+            t.0 = msg.0.clone();
+        }
     }
 }

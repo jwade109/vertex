@@ -4,9 +4,25 @@ pub struct NetworkPlugin;
 
 impl Plugin for NetworkPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (spawn_network_request, poll_tasks));
+        app.add_systems(Startup, setup.after(MainStartup));
+        app.add_systems(
+            Update,
+            (
+                debug_log_loading_messages,
+                poll_tasks
+                    .run_if(on_timer(std::time::Duration::from_millis(20)))
+                    .run_if(on_loading_screen),
+            ),
+        );
         app.add_message::<NetworkFetch>();
     }
+}
+
+#[derive(SystemSet, Debug, Hash, Clone, Copy, PartialEq, Eq)]
+pub struct MainStartup;
+
+fn setup(mut commands: Commands, install: Res<Installation>) {
+    commands.insert_resource(NetworkWorker::run(install.clone()));
 }
 
 pub fn download_file(url: &str, path: &Path, overwrite: bool) -> Result<u64, VertexError> {
@@ -62,11 +78,10 @@ impl From<&str> for VertexError {
     }
 }
 
-fn do_network_fetch(install: Installation) -> Result<(), VertexError> {
-    // always keep this updated
+fn do_network_job(install: Installation) -> Result<(), VertexError> {
     install_remote_manifest(&install, true)?;
 
-    let manifest = Manifest::from_file(&install.network_manifest())?;
+    let manifest: Manifest = Manifest::from_file(&install.network_manifest())?;
 
     for puzzle in manifest.puzzles {
         info!("Installing {}", puzzle.short_name);
@@ -96,43 +111,49 @@ pub fn puzzle_file_url(short_name: &str) -> String {
 #[derive(Message)]
 pub struct NetworkFetch;
 
-#[derive(Component)]
+type NetworkTask = Task<Result<(), VertexError>>;
+
+#[derive(Resource, Default)]
 struct NetworkWorker {
-    task: Task<Result<(), VertexError>>,
+    current_job: Option<NetworkTask>,
 }
 
-fn spawn_network_request(
-    mut commands: Commands,
-    mut msg: MessageReader<NetworkFetch>,
-    tasks: Query<&NetworkWorker>,
-    install: Res<Installation>,
-) {
-    if msg.is_empty() {
-        return;
-    }
-
-    for _ in msg.read() {}
-
-    if !tasks.is_empty() {
-        warn!("Network request already in progress");
-        return;
-    }
-
-    let install = install.clone();
-
-    let thread_pool = AsyncComputeTaskPool::get();
-    let task = thread_pool.spawn(async move { do_network_fetch(install.clone()) });
-    commands.spawn(NetworkWorker { task });
-}
-
-fn poll_tasks(mut commands: Commands, mut tasks: Query<(Entity, &mut NetworkWorker)>) {
-    for (entity, mut sel) in tasks.iter_mut() {
-        if let Some(result) = future::block_on(future::poll_once(&mut sel.task)) {
-            match result {
-                Ok(_) => info!("Task successful"),
-                Err(e) => error!("Task failed: {:?}", e),
-            }
-            commands.entity(entity).despawn();
+impl NetworkWorker {
+    fn run(install: Installation) -> Self {
+        let thread_pool = AsyncComputeTaskPool::get();
+        let task = thread_pool.spawn(async move { do_network_job(install) });
+        Self {
+            current_job: Some(task),
         }
+    }
+}
+
+fn poll_tasks(
+    mut commands: Commands,
+    mut worker: ResMut<NetworkWorker>,
+    mut state: ResMut<NextState<AppState>>,
+) {
+    if let Some(task) = &mut worker.current_job {
+        if let Some(result) = future::block_on(future::poll_once(task)) {
+            match result {
+                Ok(_) => {
+                    info!("Task successful");
+                    commands.write_message(LoadingMessage("Success!".to_string()));
+                    state.set(AppState::Menu);
+                }
+                Err(e) => {
+                    error!("Task failed: {:?}", e);
+                    let s = format!("Failed to fetch puzzles: {:?}", e);
+                    commands.write_message(LoadingMessage(s));
+                }
+            }
+            worker.current_job = None;
+        }
+    }
+}
+
+fn debug_log_loading_messages(mut messages: MessageReader<LoadingMessage>) {
+    for msg in messages.read() {
+        info!(?msg);
     }
 }

@@ -5,7 +5,6 @@ pub enum AppState {
     #[default]
     Loading,
     Menu,
-    Network,
     Playing {
         victory: bool,
     },
@@ -126,6 +125,13 @@ pub fn camera_is_moveable(state: Res<State<AppState>>) -> bool {
     match **state {
         AppState::Playing { victory } => !victory,
         AppState::Editing { .. } => true,
+        _ => false,
+    }
+}
+
+pub fn on_loading_screen(state: Res<State<AppState>>) -> bool {
+    match **state {
+        AppState::Loading => true,
         _ => false,
     }
 }
